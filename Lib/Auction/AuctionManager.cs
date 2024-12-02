@@ -1,11 +1,13 @@
 ﻿using ACE.Entity;
-using ACE.Mods.AuctionHouse.Lib.Extensions;
+using ACE.Mods.Legend.Lib.Auction.Extensions;
+using ACE.Mods.Legend.Lib.Common;
+using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using System.Collections.Concurrent;
 
-namespace ACE.Mods.AuctionHouse.Lib.Managers
+namespace ACE.Mods.Legend.Lib.Auction
 {
     public static class AuctionManager
     {
@@ -14,10 +16,6 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
         private static double NextTickTime = 0;
 
         private static readonly double TickTime = 5;
-
-        private static readonly string CONTAINER_KEYCODE = ContainerManager.LISTING_CONTAINER_KEYCODE;
-
-        private static readonly Position CONTAINER_LOCATION = ContainerManager.LISTING_CONTAINER_LOCATION;
 
         public static WeakReference<Chest>? _listingContainer = null;
 
@@ -29,14 +27,15 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
 
         private static Chest CreateAuctionContainer()
         {
-            return ContainerManager.CreateContainer(CONTAINER_KEYCODE, CONTAINER_LOCATION);
+            return ContainerFactory
+                .CreateContainer(Constants.LISTING_CONTAINER_KEYCODE, Constants.LISTING_CONTAINER_LOCATION);
         }
 
         public static void Tick(double currentUnixTime)
         {
             if (!IsInitialized)
             {
-                var lb = LandblockManager.GetLandblock(CONTAINER_LOCATION.LandblockId, false, true);
+                var lb = LandblockManager.GetLandblock(Constants.LISTING_CONTAINER_LOCATION.LandblockId, false, true);
                 if (lb == null || !lb.CreateWorldObjectsCompleted)
                     return;
 
@@ -88,7 +87,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
 
         public static bool TryAddToListingContainer(WorldObject item)
         {
-            lock(AuctionLock)
+            lock (AuctionLock)
             {
                 return ListingContainer.TryAddToInventory(item);
             }
@@ -105,7 +104,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
             AuctionManager.Tick(Time.GetUnixTime());
         }
 
-        [CommandHandler("ah-list", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 3, "Create an auction listing using tagged items.", "Usage /ah-list <CurrencyType WCID> <StartPrice> <DurationInHours>")]
+        [CommandHandler("ah-sell", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 3, "Create an auction listing using tagged sell items.", "Usage /ah-list <CurrencyType WCID> <StartPrice> <DurationInHours>")]
         public static void HandleAuctionList(Session session, params string[] parameters)
         {
             if (parameters.Length == 3 &&
@@ -116,15 +115,23 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
 
                 if (AuctionManager.TaggedItems.TryGetValue(session.Player.Guid.Full, out var items) && items != null && items.Count > 0)
                 {
-                    session.Player.PlaceAuctionListing(items.ToList(), currencyType, startPrice, hoursDuration);
+                    try
+                    {
+                        session.Player.PlaceAuctionSell(items.ToList(), currencyType, startPrice, hoursDuration);
+                    }
+                    catch (Exception ex)
+                    {
+                        ModManager.Log(ex.Message, ModManager.LogLevel.Error);
+                        session.Player.SendAuctionMessage($"An unexpected error occurred");
+                    }
                 }
-                else 
+                else
                     session.Network.EnqueueSend(new GameMessageSystemChat("You don't have any items tagged for listing, plsease use /ah-tag for more info", ChatMessageType.System));
 
             }
         }
 
-        [CommandHandler("ah-tag", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 1, "Tag items in your inventory that will be batched into an auction listing", "Usage: /ah-tag <inspect|list|add|remove> <addId|removeId>")]
+        [CommandHandler("ah-tag", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 1, "Tag items in your inventory that will be included in an auction listing", "Usage: /ah-tag <inspect|list|add|remove> <addId|removeId>")]
         public static void HandleTag(Session session, params string[] parameters)
         {
 
@@ -151,7 +158,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
                         session.Network.EnqueueSend(new GameMessageSystemChat("Usage: /ah-tag add <addId>", ChatMessageType.System));
                         return;
                     }
-                    HandleAddTag(session, addId);
+                    session.Player.AddTagItem(addId);
                     break;
 
                 case "remove":
@@ -160,41 +167,21 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
                         session.Network.EnqueueSend(new GameMessageSystemChat("Usage: /ah-tag remove <removeId>", ChatMessageType.System));
                         return;
                     }
-                    HandleRemoveTag(session, removeId);
+                    session.Player.RemoveTagItem(removeId);
                     break;
 
                 case "clear":
-                    HandleClearTag(session);
+                    session.Player.ClearTags();
                     break;
 
                 case "list":
-                    HandleListTags(session);
+                    session.Player.ListTags();
                     break;
 
                 default:
                     session.Network.EnqueueSend(new GameMessageSystemChat("Invalid command. Usage: /ah-tag <inspect|add|remove> <addId|removeId>", ChatMessageType.System));
                     break;
             }
-        }
-
-        private static void HandleListTags(Session session)
-        {
-            session.Player.ListTags();
-        }
-
-        private static void HandleClearTag(Session session)
-        {
-            session.Player.ClearTags();
-        }
-
-        private static void HandleRemoveTag(Session session, uint targetId)
-        {
-            session.Player.RemoveTagItem(targetId);
-        }
-
-        private static void HandleAddTag(Session session, uint targetId)
-        {
-            session.Player.AddTagItem(targetId);
         }
 
         private static void HandleInspectTag(Session session)
@@ -208,9 +195,15 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
                 try
                 {
                     session.Player.InspectTagItem(objectId.Full);
-                } catch (Exception ex)
+                }
+                catch (AuctionFailure ex)
                 {
                     session.Network.EnqueueSend(new GameMessageSystemChat(ex.Message, ChatMessageType.System));
+                }
+                catch (Exception ex)
+                {
+                    ModManager.Log(ex.Message, ModManager.LogLevel.Error);
+                    session.Player.SendAuctionMessage($"An unexpected error occurred");
                 }
             }
         }

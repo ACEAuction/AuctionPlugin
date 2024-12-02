@@ -2,7 +2,6 @@
 using ACE.Database.Models.Shard;
 using ACE.Entity;
 using ACE.Entity.Enum.Properties;
-using ACE.Mods.AuctionHouse.Lib.Common;
 using ACE.Server.Factories;
 using ACE.Server.Managers;
 using System;
@@ -11,17 +10,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ACE.Mods.AuctionHouse.Lib.Managers
+namespace ACE.Mods.Legend.Lib.Common
 {
-    public static class ContainerManager
+    public static class ContainerFactory
     {
-        public static readonly string LISTING_CONTAINER_KEYCODE = "AUCTIONHOUSE_LISTING_CONTAINER";
 
-        public static readonly Position LISTING_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01BC [52.976112 -25.481722 0.005000] 0.999953 0.000000 0.000000 0.009710");
-
-        public static readonly string MAIL_CONTAINER_KEYCODE = "MAIL_CONTAINER";
-
-        public static readonly Position MAIL_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01C2 [55.623619 -25.480036 0.005000] 0.999953 0.000000 0.000000 0.009710");
 
         private static uint GetContainerId(string keycode)
         {
@@ -100,8 +93,8 @@ namespace ACE.Mods.AuctionHouse.Lib.Managers
             (
                 __instance is Storage ||
                 __instance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
-                __instance.Name == ContainerManager.LISTING_CONTAINER_KEYCODE ||
-                __instance.Name == ContainerManager.MAIL_CONTAINER_KEYCODE
+                __instance.Name == Constants.LISTING_CONTAINER_KEYCODE ||
+                __instance.Name == Constants.MAIL_CONTAINER_KEYCODE
             )
             {
                 __result = false; // Do not clear storage, ever.

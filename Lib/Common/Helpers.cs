@@ -1,13 +1,14 @@
 ﻿using ACE.Entity;
 using ACE.Entity.Models;
+using ACE.Mods.Legend.Lib.Common.Spells;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static ACE.Mods.AuctionHouse.Lib.Common.Constants;
+using static ACE.Mods.Legend.Lib.Common.Constants;
 
-namespace ACE.Mods.AuctionHouse.Lib.Common
+namespace ACE.Mods.Legend.Lib.Common
 {
     public static class Helpers
     {
@@ -103,11 +104,16 @@ namespace ACE.Mods.AuctionHouse.Lib.Common
             var maxDamage = wo.GetProperty(Entity.Enum.Properties.PropertyInt.Damage);
             var variance = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.DamageVariance);
 
-            //sb.Append(", " + (wo.Values(LongValueKey.MaxDamage) - (wo.Values(LongValueKey.MaxDamage) * wo.Values(DoubleValueKey.Variance))).ToString("N2") + "-" + wo.Values(LongValueKey.MaxDamage));
-            if (maxDamage.HasValue && maxDamage.Value > 0 && variance.HasValue && variance.Value > 0)
+            if (weaponType.HasValue && maxDamage.HasValue && maxDamage.Value > 0 && variance.HasValue && variance.Value > 0)
+            {
+                ModManager.Log($"MAX DAMAGE {maxDamage.Value}", ModManager.LogLevel.Error);
                 sb.Append($", {((maxDamage.Value) - (maxDamage.Value * variance.Value)).ToString("N2")}-{maxDamage.Value}");
+            }
             else if (maxDamage.HasValue && maxDamage != 0 && variance == 0)
+            {
+                //ModManager.Log($"MAX DAMAGE {maxDamage.Value}", ModManager.LogLevel.Error);
                 sb.Append($", {maxDamage.Value}");
+            }
 
             var elemBonus = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ElementalDamageBonus);
             if (elemBonus.HasValue && elemBonus.Value > 0)
@@ -139,7 +145,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Common
 
             var manacBonus = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.ManaConversionMod);
             if (manacBonus.HasValue && manacBonus.Value != 1)
-                sb.Append($", {Math.Round((manacBonus.Value - 1) * 100)}%mc");
+                sb.Append($", {Math.Round((manacBonus.Value) * 100)}%mc");
 
             List<int> spells = wo.Biota.GetKnownSpellsIds(wo.BiotaDatabaseLock);
 
@@ -148,12 +154,79 @@ namespace ACE.Mods.AuctionHouse.Lib.Common
                 spells.Sort();
                 spells.Reverse();
 
-                foreach(int spell in spells)
+                foreach (int spell in spells)
                 {
+                    var spellById = SpellTools.GetSpell(spell);
 
+                    // If the item is not loot generated, show all spells
+                    var material = wo.GetProperty(Entity.Enum.Properties.PropertyInt.MaterialType);
+                    if (material == null)
+                        goto ShowSpell;
+
+                    // Always show Minor/Major/Epic Impen
+                    if (spellById.Name.Contains("Minor Impenetrability") || spellById.Name.Contains("Major Impenetrability") || spellById.Name.Contains("Epic Impenetrability") || spellById.Name.Contains("Legendary Impenetrability"))
+                        goto ShowSpell;
+
+                    // Always show trinket spells
+                    if (spellById.Name.Contains("Augmented"))
+                        goto ShowSpell;
+
+                    var resistMagic = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ResistMagic);
+                    if (resistMagic.HasValue && resistMagic.Value >= 9999)
+                    {
+                        // Show banes and impen on unenchantable equipment
+                        if (spellById.Name.Contains(" Bane") || spellById.Name.Contains("Impen") || spellById.Name.StartsWith("Brogard"))
+                            goto ShowSpell;
+                    }
+                    else
+                    {
+                        // Hide banes and impen on enchantable equipment
+                        if (spellById.Name.Contains(" Bane") || spellById.Name.Contains("Impen") || spellById.Name.StartsWith("Brogard"))
+                            continue;
+                    }
+
+                    if ((spellById.Family >= 152 && spellById.Family <= 158) || spellById.Family == 195 || spellById.Family == 325)
+                    {
+                        // This is a weapon buff
+
+                        // Lvl 6
+                        if (spellById.Difficulty == 250)
+                            continue;
+
+                        // Lvl 7
+                        if (spellById.Difficulty == 300)
+                            goto ShowSpell;
+
+                        // Lvl 8+
+                        if (spellById.Difficulty >= 400)
+                            goto ShowSpell;
+
+                        continue;
+                    }
+
+                    // This is not a weapon buff.
+
+                    // Filter all 1-5 spells
+                    if (spellById.Name.EndsWith(" I") || spellById.Name.EndsWith(" II") || spellById.Name.EndsWith(" III") || spellById.Name.EndsWith(" IV") || spellById.Name.EndsWith(" V"))
+                        continue;
+
+                    // Filter 6's
+                    if (spellById.Name.EndsWith(" VI"))
+                        continue;
+
+                    // Filter 7's
+                    if (spellById.Difficulty == 300)
+                        continue;
+
+                    // Filter 8's
+                    if (spellById.Name.Contains("Incantation"))
+                        continue;
+
+                    ShowSpell:
+
+                    sb.Append(", " + spellById.Name);
                 }
             }
-
 
             return sb.ToString();
         }

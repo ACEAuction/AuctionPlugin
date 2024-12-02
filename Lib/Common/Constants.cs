@@ -1,13 +1,23 @@
-﻿using System;
+﻿using ACE.Entity;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ACE.Mods.AuctionHouse.Lib.Common
+namespace ACE.Mods.Legend.Lib.Common
 {
     internal class Constants
     {
+        public const string LISTING_CONTAINER_KEYCODE = "AUCTIONHOUSE_LISTING_CONTAINER";
+
+        public const string MAIL_CONTAINER_KEYCODE = "MAIL_CONTAINER";
+
+        public static readonly Position MAIL_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01C2 [55.623619 -25.480036 0.005000] 0.999953 0.000000 0.000000 0.009710");
+
+        public static readonly Position LISTING_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01BC [52.976112 -25.481722 0.005000] 0.999953 0.000000 0.000000 0.009710");
+
+
         // https://raw.githubusercontent.com/Mag-nus/Mag-Plugins/refs/heads/master/Shared/Constants/Dictionaries.cs
         public static class Dictionaries
         {

@@ -1,10 +1,11 @@
-﻿using ACE.Mods.AuctionHouse.Lib.Managers;
+﻿using ACE.Mods.Legend.Lib.Auction;
+using ACE.Mods.Legend.Lib.Common;
 
-namespace ACE.Mods.AuctionHouse
+namespace ACE.Mods.Legend
 {
     public class Settings
     {
-        public List<string> ContainerManager{ get; set; } = new()
+        public List<string> ContainerFactory{ get; set; } = new()
         {
             nameof(ContainerPatches),
         };

@@ -1,9 +1,6 @@
-﻿using ACE.Database.Entity;
-using ACE.Database.Models.Shard;
-using ACE.Mods.AuctionHouse.Lib;
-using ACE.Server.Managers;
+﻿using ACE.Mods.Legend.Lib.Common.Spells;
 
-namespace ACE.Mods.AuctionHouse
+namespace ACE.Mods.Legend
 {
     [HarmonyPatch]
     public class PatchClass
@@ -76,8 +73,9 @@ namespace ACE.Mods.AuctionHouse
                 return;
             }
 
-            PatchContainerManager();
+            PatchContainerFactory();
             PatchAuctionManager();
+            SpellTools.Init();
 
             Mod.State = ModState.Running;
         }
@@ -95,9 +93,9 @@ namespace ACE.Mods.AuctionHouse
         }
         #endregion
 
-        private void PatchContainerManager()
+        private void PatchContainerFactory()
         {
-            foreach (var p in Settings.ContainerManager)
+            foreach (var p in Settings.ContainerFactory)
                 Mod.Harmony.PatchCategory(p);
         }
         private void PatchAuctionManager()

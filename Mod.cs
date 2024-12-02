@@ -1,4 +1,4 @@
-﻿namespace ACE.Mods.AuctionHouse
+﻿namespace ACE.Mods.Legend   
 {
     public class Mod : IHarmonyMod
     {
@@ -6,10 +6,10 @@
         //If Harmony is set to debug it creates a log on Desktop
         public const bool DEBUGGING = false;
         //Point to your mod directory
-        public static string ModPath = Path.Combine(ModManager.ModPath, "ACE.Mods.AuctionHouse");
+        public static string ModPath = Path.Combine(ModManager.ModPath, "ACE.Mods.Legend");
 
         //IDs are used by Harmony to separate multiple patches
-        const string ID = "com.ACE.ACEmulator.ACE.Mods.AuctionHouse";
+        const string ID = "com.ACE.ACEmulator.ACE.Mods.Legend";
         public static Harmony Harmony { get; set; } = new(ID);
 
         private bool disposedValue;

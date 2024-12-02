@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ACE.Mods.AuctionHouse.Lib.Common.Errors
+namespace ACE.Mods.Legend.Lib.Common.Errors
 {
     public class AuctionFailure : Exception
     {

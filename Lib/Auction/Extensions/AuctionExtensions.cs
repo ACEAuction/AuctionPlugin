@@ -1,8 +1,8 @@
 ﻿using ACE.Database;
 using ACE.Entity.Models;
-using ACE.Mods.AuctionHouse.Lib.Common;
-using ACE.Mods.AuctionHouse.Lib.Common.Errors;
-using ACE.Mods.AuctionHouse.Lib.Managers;
+using ACE.Mods.Legend.Lib.Auction;
+using ACE.Mods.Legend.Lib.Common;
+using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Server.Command.Handlers;
 using ACE.Server.Entity.Actions;
 using ACE.Server.Factories;
@@ -10,9 +10,9 @@ using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
 
-namespace ACE.Mods.AuctionHouse.Lib.Extensions
+namespace ACE.Mods.Legend.Lib.Auction.Extensions
 {
-    public static class PlayerExtensions
+    public static class AuctionExtensions
     {
         private static readonly ushort MaxAuctionHours = 168; // a week is the longest duration for an auction, this could be a server property
 
@@ -55,7 +55,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
             return true;
         }
 
-        public static void PlaceAuctionListing(this Player player, List<uint> itemList, uint currencyType, uint startPrice, ushort hoursDuration)
+        public static void PlaceAuctionSell(this Player player, List<uint> itemList, uint currencyType, uint startPrice, ushort hoursDuration)
         {
             List<WorldObject> removedItems = new List<WorldObject>();
             Book listingParchment = (Book)WorldObjectFactory.CreateNewWorldObject(365);
@@ -88,7 +88,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
                 if (!AuctionManager.TryAddToListingContainer(listingParchment))
                     throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {listingParchment.Name} to listing container");
 
-                foreach(var item in removedItems)
+                foreach (var item in removedItems)
                 {
                     if (item == null || !AuctionManager.TryAddToListingContainer(item))
                         throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {item?.Name} to listing container");
@@ -98,14 +98,14 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
                 Weenie weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
 
                 if (weenie == null)
-                    throw new AuctionFailure($"Accepted currency ");
+                    throw new AuctionFailure($"Failed to place auction listing k ");
 
                 if (weenie != null)
                     currency = weenie.GetName();
 
                 player.SendAuctionMessage($"Successfully created an auction listing with Id = {listingParchment.Guid.Full}, Seller = {player.Name}, Currency = {currency}, StartingPrice = {startPrice}", ChatMessageType.Broadcast);
 
-                foreach(var item in removedItems)
+                foreach (var item in removedItems)
                 {
                     var message = $"--> Id = {item.Guid.Full}, Name = {item.NameWithMaterial}, Count = {item.StackSize ?? 1}";
                     player.SendAuctionMessage(message);
@@ -113,12 +113,12 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
 
                 AuctionManager.TaggedItems.Clear();
             }
-            catch (Exception ex)
+            catch (AuctionFailure ex)
             {
                 player.SendAuctionMessage($"placing auction listing failed");
                 player.SendAuctionMessage(ex.Message);
 
-                foreach(WorldObject removedItem in removedItems)
+                foreach (WorldObject removedItem in removedItems)
                 {
                     removedItem.RemoveProperty(FakeInt.ListingId);
 
@@ -128,7 +128,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
 
                     var actionChain = new ActionChain();
                     actionChain.AddDelaySeconds(0.5);
-                    actionChain.AddAction(player, () => 
+                    actionChain.AddAction(player, () =>
                     {
                         player.SendAuctionMessage($"Attempting to return listing item {removedItem.NameWithMaterial}");
 
@@ -149,7 +149,7 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
                     actionChain.EnqueueChain();
                 }
 
-                if(!player.TryConsumeFromInventoryWithNetworking(listingParchment.Guid.Full))
+                if (!player.TryConsumeFromInventoryWithNetworking(listingParchment.Guid.Full))
                     player.SendAuctionMessage($"Failed to remove listing parchment {listingParchment.Name}");
 
                 listingParchment.Destroy();
@@ -188,44 +188,30 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
 
         public static void InspectTagItem(this Player player, uint itemId)
         {
-            try
-            {
-                player.ValidateAuctionTag(itemId, out WorldObject item);
-                player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, Name = {item.NameWithMaterial}");
-                player.AddTagItem(itemId);
-            }
-            catch (Exception ex)
-            {
-                player.SendAuctionMessage(ex.Message);
-            }
+            player.ValidateAuctionTag(itemId, out WorldObject item);
+            player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, Name = {item.NameWithMaterial}");
+            player.AddTagItem(itemId);
         }
 
         public static void AddTagItem(this Player player, uint itemId)
         {
-            try
-            {
-                player.ValidateAuctionTag(itemId, out WorldObject item);
+            player.ValidateAuctionTag(itemId, out WorldObject item);
 
-                AuctionManager.TaggedItems.AddOrUpdate(
-                    player.Guid.Full,
-                    _ => new HashSet<uint> { itemId },
-                    (_, existingSet) =>
+            AuctionManager.TaggedItems.AddOrUpdate(
+                player.Guid.Full,
+                _ => new HashSet<uint> { itemId },
+                (_, existingSet) =>
+                {
+                    lock (existingSet)
                     {
-                        lock (existingSet) 
-                        {
-                            existingSet.Add(itemId);
-                        }
-                        return existingSet;
+                        existingSet.Add(itemId);
                     }
-                );
+                    return existingSet;
+                }
+            );
 
-                player.SendAuctionMessage($"Added tagged item {item.NameWithMaterial}");
-                player.SendAuctionMessage(Helpers.BuildItemInfo(item));
-            }
-            catch (Exception ex)
-            {
-                player.SendAuctionMessage($"Error adding tag item: {ex.Message}");
-            }
+            player.SendAuctionMessage($"Added tagged item {item.NameWithMaterial}");
+            player.SendAuctionMessage(Helpers.BuildItemInfo(item));
         }
 
         public static void ListTags(this Player player)
@@ -233,11 +219,12 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
             if (AuctionManager.TaggedItems.TryGetValue(player.Guid.Full, out var items) && items.Count > 0)
             {
                 StringBuilder message = new StringBuilder();
-                player.SendAuctionMessage("-------------------------");
-                message.Append("Auction Tag List\n");
-                message.Append("-------------------------\n");
+
                 lock (items)
                 {
+                    message.Append("^^^^^^^^^^^^^^^^^^^^^^^^^\n");
+                    message.Append("Auction Sell Tagged List\n");
+                    message.Append("-------------------------\n");
                     foreach (var id in items)
                     {
                         var item = player.FindObject(id, SearchLocations.MyInventory | SearchLocations.MyEquippedItems, out var itemFoundInContainer, out var itemRootOwner, out var itemWasEquipped);
@@ -245,14 +232,14 @@ namespace ACE.Mods.AuctionHouse.Lib.Extensions
                         if (item == null)
                             message.Append($"--> Id = {id}  Unable to find item\n");
                         else
-                            message.Append($"--> Id = {item.Guid.Full}, Name = {item.NameWithMaterial}\n");
+                            message.Append($"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}\n");
 
                         message.Append("-------------------------\n");
                     }
+                    message.Append("^^^^^^^^^^^^^^^^^^^^^^^^^\n");
                 }
 
                 CommandHandlerHelper.WriteOutputInfo(player.Session, message.ToString(), ChatMessageType.Broadcast);
-                player.SendAuctionMessage("-------------------------");
             }
             else
                 player.Session.Network.EnqueueSend(new GameMessageSystemChat("You don't have any tagged items", ChatMessageType.System));
