@@ -1,6 +1,7 @@
 ﻿using ACE.Entity;
 using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Common.Spells;
+using ACE.Server.Factories.Enum;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -227,6 +228,67 @@ namespace ACE.Mods.Legend.Lib.Common
                     sb.Append(", " + spellById.Name);
                 }
             }
+
+            ModManager.Log($"ITEM TYPE {wo.ItemType.ToString()}", ModManager.LogLevel.Error);
+
+            var weaponSkill = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WeaponSkill);
+            var wieldDiff = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WieldDifficulty);
+            if (!weaponSkill.HasValue || weaponSkill.Value == (int)Skill.None)
+            {
+                var wieldLevelReq = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WieldRequirements);
+                if (wieldLevelReq.HasValue && wieldLevelReq.Value == (int)WieldRequirement.Level && wieldDiff.HasValue && wieldDiff.Value > 0)
+                {
+                    sb.Append($", Wield Lvl {wieldDiff.Value}");
+                }
+            } else
+            {
+                if (Dictionaries.SkillInfo.ContainsKey(weaponSkill.Value) && wieldDiff.HasValue)
+                    sb.Append($", {Dictionaries.SkillInfo[weaponSkill.Value]} {wieldDiff.Value}");
+                else
+                    sb.Append($", UnknownSkill: {weaponSkill.Value}");
+            }
+
+            var useReqLevel = wo.GetProperty(Entity.Enum.Properties.PropertyInt.UseRequiresLevel);
+
+            if (useReqLevel.HasValue && useReqLevel.Value > 0)
+            {
+                sb.Append($", Lvl {useReqLevel.Value}");
+            }
+
+            var itemSkillLevelLimit = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ItemSkillLevelLimit);
+            var itemSkillLimit = wo.ItemSkillLimit;
+
+            if (itemSkillLimit.HasValue && itemSkillLevelLimit.HasValue)
+            {
+                if (Dictionaries.SkillInfo.ContainsKey((int)itemSkillLimit.Value))
+                    sb.Append($", {Dictionaries.SkillInfo[(int)itemSkillLimit.Value]} {itemSkillLevelLimit.Value}");
+                else
+                    sb.Append($", Unknown skill{itemSkillLimit.Value}");
+            }
+
+
+            var itemDiff = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ItemDifficulty);
+
+            if (itemDiff.HasValue && itemDiff.Value > 0)
+            {
+                sb.Append($", Diff {itemDiff.Value}");
+            }
+
+            if (wo.ItemType == ItemType.TinkeringMaterial && wo.Workmanship.HasValue)
+            {
+                sb.Append($", Work {wo.Workmanship.Value.ToString("N2")}");
+            }
+            else
+            {
+                if (wo.ItemWorkmanship > 0 && wo.NumTimesTinkered != 10)
+                    sb.Append($", Craft {wo.Workmanship}");
+            }
+
+            if (wo.Value > 0)
+                sb.Append($", Value {wo.Value:n0}");
+
+            if (wo.EncumbranceVal > 0)
+                sb.Append($", BU {wo.EncumbranceVal:n0}");
 
             return sb.ToString();
         }

@@ -186,7 +186,7 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         private static void HandleInspectTag(Session session)
         {
-            var target = session.Player.CurrentAppraisalTarget;
+            var target = session.Player.RequestedAppraisalTarget;
 
             if (target.HasValue)
             {

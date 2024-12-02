@@ -189,7 +189,7 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
         public static void InspectTagItem(this Player player, uint itemId)
         {
             player.ValidateAuctionTag(itemId, out WorldObject item);
-            player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, Name = {item.NameWithMaterial}");
+            player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}");
             player.AddTagItem(itemId);
         }
 
@@ -210,8 +210,7 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
                 }
             );
 
-            player.SendAuctionMessage($"Added tagged item {item.NameWithMaterial}");
-            player.SendAuctionMessage(Helpers.BuildItemInfo(item));
+            player.SendAuctionMessage($"Added tagged listing item {item.NameWithMaterial}");
         }
 
         public static void ListTags(this Player player)
