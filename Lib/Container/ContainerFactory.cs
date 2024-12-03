@@ -139,6 +139,19 @@ namespace ACE.Mods.Legend.Lib.Container
 
             localInstance.IsOpen = true;
 
+            var customContainerOpen = player.GetProperty(FakeBool.IsCustomContainerOpen);
+
+            if (customContainerOpen.HasValue && customContainerOpen.Value)
+            {
+                player.Session.Network.EnqueueSend(new GameEventCloseGroundContainer(player.Session, localInstance));
+
+                if (player.LastOpenedContainerId == localInstance.Guid)
+                    player.LastOpenedContainerId = ObjectGuid.Invalid;
+                player.SetProperty(FakeBool.IsCustomContainerOpen, false);
+            } else
+                player.SetProperty(FakeBool.IsCustomContainerOpen, true);
+
+            ModManager.Log("SENDING INVENTORY");
             localInstance.SendInventory(player);
 
             if (!(localInstance is Chest) && !localInstance.ResetMessagePending && localInstance.ResetInterval.HasValue)
@@ -182,6 +195,8 @@ namespace ACE.Mods.Legend.Lib.Container
 
             foreach (var item in inventory)
             {
+                var mailTo = item.GetProperty(ACE.Shared.FakeIID.MailTo);
+                ModManager.Log($"NAME = {item.Name}, mailTo = {mailTo}");
                 // FIXME: only send messages for unknown objects
                 itemsToSend.Add(new GameMessageCreateObject(item));
 
@@ -198,6 +213,7 @@ namespace ACE.Mods.Legend.Lib.Container
             foreach (var container in inventory.Where(i => i is ACE.Server.WorldObjects.Container))
                 player.Session.Network.EnqueueSend(new GameEventViewContents(player.Session, (ACE.Server.WorldObjects.Container)container));
 
+            ModManager.Log($"Items to Send Count: {itemsToSend.Count}");
             player.Session.Network.EnqueueSend(itemsToSend);
 
             return false;
@@ -513,25 +529,7 @@ namespace ACE.Mods.Legend.Lib.Container
                     return false;
                 }
             }
-
-            //if (container is Storage storage)
-            //{
-            //    if (!storage.IsOpen || storage.Viewer != Guid.Full)
-            //    {
-            //        Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(Session, itemGuid, WeenieError.TheContainerIsClosed));
-            //        return false;
-            //    }
-            //}
-
-            //if (container is Chest chest)
-            //{
-            //    if (!chest.IsOpen || chest.Viewer != Guid.Full)
-            //    {
-            //        Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(Session, itemGuid, WeenieError.TheContainerIsClosed));
-            //        return false;
-            //    }
-            //}
-
+  
             if (containerRootOwner == null) // container is on landscape, so you must have it open
             {
                 if (!container.IsOpen || (!IsCustomContainer(container) && container.Viewer != localInstance.Guid.Full))
@@ -548,57 +546,7 @@ namespace ACE.Mods.Legend.Lib.Container
             return false;
         }
 
-        /*[HarmonyPrefix]
-        [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.FinishClose), new Type[] { typeof(Player) })]
-        public static bool PreFinishClose(Player player, ref ACE.Server.WorldObjects.Container __instance)
-        {
-            var localInstance = __instance;
-            if (localInstance.Name != Constants.MAIL_CONTAINER_KEYCODE)
-                return true;
-
-            localInstance.IsOpen = false;
-            localInstance.Viewer = 0;
-
-            if (player != null)
-            {
-                player.Session.Network.EnqueueSend(new GameEventCloseGroundContainer(player.Session, localInstance));
-
-                if (player.LastOpenedContainerId == localInstance.Guid)
-                    player.LastOpenedContainerId = ObjectGuid.Invalid;
-
-                // send deleteobject for all objects in this container's inventory to player
-                // this seems logical, but it bugs out the client for re-opening chests w/ respawned items
-                /*var itemsToSend = new List<GameMessage>();
-
-                foreach (var item in Inventory.Values)
-                    itemsToSend.Add(new GameMessageDeleteObject(item));
-
-                player.Session.Network.EnqueueSend(itemsToSend.ToArray());
-            }
-
-            return false;
-        }
-
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.Close), new Type[] { typeof(Player) })]
-        public static bool PreClose(Player player, ref ACE.Server.WorldObjects.Container __instance)
-        {
-            var localInstance = __instance;
-            if (localInstance.Name != Constants.MAIL_CONTAINER_KEYCODE)
-                return true;
-
-            if (!localInstance.IsOpen)
-                return false;
-
-            var animTime = localInstance.DoOnCloseMotionChanges();
-
-            localInstance.FinishClose(player);
-
-            return false;
-        }
-        */
-
+     
 
 
         private static bool IsCustomContainer(ACE.Server.WorldObjects.Container localInstance)
