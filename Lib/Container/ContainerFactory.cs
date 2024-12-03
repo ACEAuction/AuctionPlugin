@@ -199,8 +199,13 @@ namespace ACE.Mods.Legend.Lib.Container
                         return mailTo.HasValue && mailTo.Value == player.Guid.Full;
                     }).OrderByDescending(item => item.Value).ToList();
 
-            if (container.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE)
-                inventory = container.Inventory.Values.ToList();
+            if (container.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
+                inventory = container.Inventory.Values
+                    .Where(item =>
+                    {
+                        var listingOwner = item.GetProperty(ACE.Shared.FakeIID.ListingOwnerId);
+                        return listingOwner.HasValue && listingOwner.Value == player.Guid.Full;
+                    }).OrderByDescending(item => item.Value).ToList();
 
             foreach (WorldObject value in inventory)
             {
