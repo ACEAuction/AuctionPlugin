@@ -1,5 +1,5 @@
 ﻿using ACE.Mods.Legend.Lib.Auction;
-using ACE.Mods.Legend.Lib.Common;
+using ACE.Mods.Legend.Lib.Container;
 using ACE.Mods.Legend.Lib.Mail;
 
 namespace ACE.Mods.Legend

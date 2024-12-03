@@ -2,6 +2,7 @@
 using ACE.Entity;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
+using ACE.Mods.Legend.Lib.Container;
 using ACE.Mods.Legend.Lib.Mail;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages.Messages;
@@ -56,12 +57,10 @@ namespace ACE.Mods.Legend.Lib.Auction
             if (!ListingsContainer.InventoryLoaded || !ItemsContainer.InventoryLoaded || !MailManager.MailContainer.InventoryLoaded)
                 return;
 
-            ModManager.Log("[AuctionManager] Tick....");
             lock (AuctionLock)
             {
                 try
                 {
-                    ModManager.Log($"ListingContainer Count: {ListingsContainer.Inventory.Count}");
                     var activeListing = ListingsContainer.Inventory.Values
                         .FirstOrDefault(item =>
                         {

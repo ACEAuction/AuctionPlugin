@@ -1,6 +1,7 @@
 ﻿using ACE.Entity;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
+using ACE.Mods.Legend.Lib.Container;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;

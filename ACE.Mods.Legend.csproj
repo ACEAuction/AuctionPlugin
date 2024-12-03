@@ -67,6 +67,7 @@
 			<HintPath>C:\ACE\Server\ACE.Entity.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+
 		<Reference Include="ACE.Server">
 			<HintPath>C:\ACE\Server\ACE.Server.dll</HintPath>
 			<Private>False</Private>
