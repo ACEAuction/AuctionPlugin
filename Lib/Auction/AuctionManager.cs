@@ -1,7 +1,8 @@
-﻿using ACE.Entity;
-using ACE.Mods.Legend.Lib.Auction.Extensions;
+﻿using ACE.Adapter.GDLE.Models;
+using ACE.Entity;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
+using ACE.Mods.Legend.Lib.Mail;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
@@ -17,79 +18,165 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         private static readonly double TickTime = 5;
 
-        public static WeakReference<Chest>? _listingContainer = null;
+        public static WeakReference<Chest>? _listingsContainer = null;
 
-        public static Chest ListingContainer => GetOrCreateAuctionContainer();
-
-        private static bool IsInitialized = false;
+        public static WeakReference<Chest>? _itemsContainer = null;
+        public static Chest ListingsContainer => GetOrCreateListingsContainer();
+        public static Chest ItemsContainer => GetOrCreateItemsContainer();
 
         public static readonly ConcurrentDictionary<uint, HashSet<uint>> TaggedItems = new();
 
-        private static Chest CreateAuctionContainer()
+        private static Chest CreateListingsContainer()
         {
             return ContainerFactory
-                .CreateContainer(Constants.LISTING_CONTAINER_KEYCODE, Constants.LISTING_CONTAINER_LOCATION);
+                .CreateContainer(Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE, Constants.AUCTION_LISTINGS_CONTAINER_LOCATION);
+        }
+        private static Chest CreateItemsContainer()
+        {
+            return ContainerFactory
+                .CreateContainer(Constants.AUCTION_ITEMS_CONTAINER_KEYCODE, Constants.AUCTION_ITEMS_CONTAINER_LOCATION);
         }
 
         public static void Tick(double currentUnixTime)
         {
-            if (!IsInitialized)
-            {
-                var lb = LandblockManager.GetLandblock(Constants.LISTING_CONTAINER_LOCATION.LandblockId, false, true);
-                if (lb == null || !lb.CreateWorldObjectsCompleted)
-                    return;
+            var listingLb = LandblockManager.GetLandblock(Constants.AUCTION_LISTINGS_CONTAINER_LOCATION.LandblockId, false, true);
+            var itemsLb = LandblockManager.GetLandblock(Constants.AUCTION_ITEMS_CONTAINER_LOCATION.LandblockId, false, true);
 
-                IsInitialized = true;
-            }
+            if (listingLb.CreateWorldObjectsCompleted && listingLb.GetObject(ListingsContainer.Guid, false) == null)
+                ListingsContainer.EnterWorld();
+
+            if (itemsLb.CreateWorldObjectsCompleted && itemsLb.GetObject(ListingsContainer.Guid, false) == null)
+                ListingsContainer.EnterWorld();
 
             if (NextTickTime > currentUnixTime)
-            {
                 return;
-            }
 
             NextTickTime = currentUnixTime + TickTime;
 
-            try
+            if (!ListingsContainer.InventoryLoaded || !ItemsContainer.InventoryLoaded || !MailManager.MailContainer.InventoryLoaded)
+                return;
+
+            ModManager.Log("[AuctionManager] Tick....");
+            lock (AuctionLock)
             {
-                lock (AuctionLock)
+                try
                 {
-                    if (!ListingContainer.InventoryLoaded)
-                        return;
+                    ModManager.Log($"ListingContainer Count: {ListingsContainer.Inventory.Count}");
+                    var activeListing = ListingsContainer.Inventory.Values
+                        .FirstOrDefault(item =>
+                        {
+                            var status = item.GetProperty(FakeString.ListingStatus);
+                            var endTime = item.GetProperty(FakeFloat.ListingEndTimestamp);
+                            return status != null && status == "active" && endTime.HasValue && endTime.Value < currentUnixTime;
+                        });
 
-                    var activeListings = ListingContainer.Inventory.Values.Where(item => item.GetProperty(FakeString.ListingStatus) == "active").ToList();
-
-                    // Process active auctions
-                    foreach (var activeAuction in activeListings)
+                    if (activeListing != null)
                     {
-                        var endTime = activeAuction.GetProperty(FakeFloat.ListingEndTimestamp);
-
-                        //if (endTime.HasValue && endTime.Value < currentUnixTime)  
+                        ModManager.Log($"Active listing Id = {activeListing.Guid.Full}");
+                        var items = ItemsContainer.Inventory.Values
+                            .Where(item =>
+                            {
+                                var listingId = item.GetProperty(FakeIID.ListingId);
+                                return listingId.HasValue && listingId.Value == activeListing.Guid.Full;
+                            })
+                            .ToList();
+                        ProcessExpiredListing(activeListing, items);
                     }
-
-                    Console.WriteLine($"[AuctionManager] Tick, active auction count: {activeListings.Count}");
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[AuctionManager] Tick, Error occurred: {ex}");
+                catch (Exception ex)
+                {
+                    ModManager.Log($"[AuctionManager] Tick, Error occurred: {ex}", ModManager.LogLevel.Error);
+                }
             }
         }
 
-        private static Chest GetOrCreateAuctionContainer()
+        private static void ProcessExpiredListing(WorldObject activeListing, List<WorldObject> auctionItems)
         {
-            if (_listingContainer == null || !_listingContainer.TryGetTarget(out var chest))
+            ModManager.Log($"Processing Expired Items for {activeListing.Guid.Full} Count: {auctionItems.Count}", ModManager.LogLevel.Warn);
+
+            var sellerId = activeListing.GetProperty(FakeIID.SellerId);
+            var highestBidderId = activeListing.GetProperty(FakeIID.HighestBidderId);
+
+            if (!sellerId.HasValue)
+                throw new AuctionFailure($"Failed to process expired listing, a SellerId is not assigned to the listing with Id {activeListing.Guid.Full}");
+
+            try
             {
-                chest = CreateAuctionContainer();
-                _listingContainer = new WeakReference<Chest>(chest);
+                foreach(var item in auctionItems)
+                {
+                    if (!TryRemoveFromItemsContainer(item))
+                        throw new AuctionFailure("Failed to removed expired items");
+
+                    if (!MailManager.TryAddToMailContainer(item))
+                        throw new AuctionFailure($"Failed to add completed auction item with Id = {item.Guid.Full} to Mailbox");
+                    else
+                    {
+                        item.RemoveProperty(FakeIID.ListingId);
+                        var mailTo = highestBidderId.HasValue ? highestBidderId.Value : sellerId.Value;
+                        item.SetProperty(FakeIID.MailTo, mailTo);
+                    }
+                }
+
+                ModManager.Log($"Completed Expired Items for {activeListing.Guid.Full}", ModManager.LogLevel.Warn);
+                activeListing.SetProperty(FakeString.ListingStatus, "complete");
+            }
+            catch (AuctionFailure ex)
+            {
+                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
+
+                activeListing.SetProperty(FakeString.ListingStatus, "failed");
+
+                foreach(var item in auctionItems)
+                {
+                    MailManager.TryRemoveFromMailContainer(item);
+                    item.SetProperty(FakeIID.ListingId, activeListing.Guid.Full);
+                    item.RemoveProperty(FakeIID.MailTo);
+                    if (ItemsContainer.Inventory.ContainsKey(item.Guid))
+                        TryAddToItemsContainer(item);
+                }
+            } 
+        }
+
+        private static Chest GetOrCreateListingsContainer()
+        {
+            if (_listingsContainer == null || !_listingsContainer.TryGetTarget(out var chest))
+            {
+                chest = CreateListingsContainer();
+                _listingsContainer = new WeakReference<Chest>(chest);
             }
             return chest;
         }
 
-        public static bool TryAddToListingContainer(WorldObject item)
+        private static Chest GetOrCreateItemsContainer()
+        {
+            if (_itemsContainer == null || !_itemsContainer.TryGetTarget(out var chest))
+            {
+                chest = CreateItemsContainer();
+                _itemsContainer = new WeakReference<Chest>(chest);
+            }
+            return chest;
+        }
+
+        public static bool TryAddToListingsContainer(WorldObject item)
         {
             lock (AuctionLock)
             {
-                return ListingContainer.TryAddToInventory(item);
+                return ListingsContainer.TryAddToInventory(item);
+            }
+        }
+
+        public static bool TryAddToItemsContainer(WorldObject item)
+        {
+            lock (AuctionLock)
+            {
+                return ItemsContainer.TryAddToInventory(item);
+            }
+        }
+        public static bool TryRemoveFromItemsContainer(WorldObject item)
+        {
+            lock (AuctionLock)
+            {
+                return ItemsContainer.TryRemoveFromInventory(item.Guid);
             }
         }
     }

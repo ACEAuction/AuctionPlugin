@@ -1,8 +1,8 @@
 ﻿using ACE.Database;
 using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
+using ACE.Mods.Legend.Lib.Mail;
 using ACE.Server.Command.Handlers;
 using ACE.Server.Entity.Actions;
 using ACE.Server.Factories;
@@ -10,7 +10,7 @@ using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
 
-namespace ACE.Mods.Legend.Lib.Auction.Extensions
+namespace ACE.Mods.Legend.Lib.Auction
 {
     public static class AuctionExtensions
     {
@@ -23,18 +23,13 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
             player.Session.Network.EnqueueSend(new GameMessageSystemChat($"{AuctionPrefix} {message}", messageType));
         }
 
-        public static bool ValidateAuctionSell(this Player player, ushort hoursDuration)
+        public static void ValidateAuctionSell(this Player player, ushort hoursDuration)
         {
             if (hoursDuration > MaxAuctionHours)
-            {
-                player.SendAuctionMessage($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)");
-                return false;
-            }
-
-            return true;
+                throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)");
         }
 
-        public static bool ValidateAuctionTag(this Player player, uint tagId, out WorldObject taggedItem)
+        public static void ValidateAuctionTag(this Player player, uint tagId, out WorldObject taggedItem)
         {
             if (AuctionManager.TaggedItems.TryGetValue(player.Guid.Full, out var items) && items != null && items.Contains(tagId))
                 throw new AuctionFailure($"The tagged item with Id = {tagId} is already tagged");
@@ -51,8 +46,6 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
                 throw new AuctionFailure($"The item {item.NameWithMaterial} cannot be tagged, the item is currently being traded");
 
             taggedItem = item;
-
-            return true;
         }
 
         public static void PlaceAuctionSell(this Player player, List<uint> itemList, uint currencyType, uint startPrice, ushort hoursDuration)
@@ -62,8 +55,10 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
 
             try
             {
+                player.ValidateAuctionSell(hoursDuration);
+
                 var startTime = DateTime.UtcNow;
-                var endTime = startTime.AddMinutes(hoursDuration);
+                var endTime = startTime.AddSeconds(hoursDuration);
 
                 listingParchment.Name = "Auction Listing Invoice";
                 listingParchment.SetProperty(FakeIID.SellerId, player.Guid.Full);
@@ -77,54 +72,49 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
                 foreach (var item in itemList)
                 {
                     player.RemoveItemForTransfer(item, out WorldObject removedItem);
-
-                    if (!player.ValidateAuctionSell(hoursDuration))
-                        throw new AuctionFailure($"Failed to place auction listing, couldn't validate item {removedItem.NameWithMaterial}");
-
-                    removedItem.SetProperty(FakeInt.ListingId, (int)listingParchment.Guid.Full);
+                    removedItem.SetProperty(FakeIID.ListingId, listingParchment.Guid.Full);
                     removedItems.Add(removedItem);
                 }
 
-                if (!AuctionManager.TryAddToListingContainer(listingParchment))
-                    throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {listingParchment.Name} to listing container");
-
                 foreach (var item in removedItems)
                 {
-                    if (item == null || !AuctionManager.TryAddToListingContainer(item))
+                    if (item == null || !AuctionManager.TryAddToItemsContainer(item))
                         throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {item?.Name} to listing container");
                 }
+
+                if (!AuctionManager.TryAddToListingsContainer(listingParchment))
+                    throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {listingParchment.Name} to listing container");
 
                 var currency = "";
                 Weenie weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
 
                 if (weenie == null)
-                    throw new AuctionFailure($"Failed to place auction listing k ");
+                    throw new AuctionFailure($"Failed to place auction listing, currencyType does not have a valid weenie");
 
-                if (weenie != null)
-                    currency = weenie.GetName();
+                currency = weenie.GetName();
 
                 player.SendAuctionMessage($"Successfully created an auction listing with Id = {listingParchment.Guid.Full}, Seller = {player.Name}, Currency = {currency}, StartingPrice = {startPrice}", ChatMessageType.Broadcast);
 
                 foreach (var item in removedItems)
                 {
-                    var message = $"--> Id = {item.Guid.Full}, Name = {item.NameWithMaterial}, Count = {item.StackSize ?? 1}";
+                    var message = $"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}, Count = {item.StackSize ?? 1}";
                     player.SendAuctionMessage(message);
                 }
 
-                AuctionManager.TaggedItems.Clear();
+                player.ClearTags();
             }
             catch (AuctionFailure ex)
             {
+                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
                 player.SendAuctionMessage($"placing auction listing failed");
                 player.SendAuctionMessage(ex.Message);
 
                 foreach (WorldObject removedItem in removedItems)
                 {
-                    removedItem.RemoveProperty(FakeInt.ListingId);
+                    removedItem.RemoveProperty(FakeIID.ListingId);
 
                     if (player.HasItemOnPerson(removedItem.Guid.Full, out var _))
                         continue;
-
 
                     var actionChain = new ActionChain();
                     actionChain.AddDelaySeconds(0.5);
@@ -132,10 +122,12 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
                     {
                         player.SendAuctionMessage($"Attempting to return listing item {removedItem.NameWithMaterial}");
 
+                        AuctionManager.TryRemoveFromItemsContainer(removedItem);
+
                         if (!player.TryCreateInInventoryWithNetworking(removedItem))
                         {
-                            player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}");
-                            // TODO send failed items to mailbox
+                            player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it by mail");
+                            MailManager.TryAddToMailContainer(removedItem);
                         }
 
                         var stackSize = removedItem.StackSize ?? 1;
@@ -149,8 +141,7 @@ namespace ACE.Mods.Legend.Lib.Auction.Extensions
                     actionChain.EnqueueChain();
                 }
 
-                if (!player.TryConsumeFromInventoryWithNetworking(listingParchment.Guid.Full))
-                    player.SendAuctionMessage($"Failed to remove listing parchment {listingParchment.Name}");
+                player.TryConsumeFromInventoryWithNetworking(listingParchment.Guid.Full);
 
                 listingParchment.Destroy();
             }

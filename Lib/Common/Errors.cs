@@ -19,6 +19,20 @@ namespace ACE.Mods.Legend.Lib.Common.Errors
             : base($"{Prefix} {message}", innerException) { }
     }
 
+    public class MailFailure : Exception
+    {
+        private const string Prefix = "[MailFailure]";
+
+        public MailFailure()
+            : base($"{Prefix} Generic mail failure Exception.") { }
+
+        public MailFailure(string message)
+            : base($"{Prefix} {message}") { }
+
+        public MailFailure(string message, Exception innerException)
+            : base($"{Prefix} {message}", innerException) { }
+    }
+
     public class ItemTransferFailure : Exception
     {
         private const string Prefix = "[ItemTransfer]";

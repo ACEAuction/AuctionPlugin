@@ -43,7 +43,7 @@ namespace ACE.Mods.Legend.Lib.Common
             if (lb == null)
                 throw new Exception($"The landblock for the auction container with id: {containerId} does not exist");
 
-            chest = (Chest)lb.GetObject(containerId);
+            chest = (Chest)lb.GetObject(new ObjectGuid(containerId), false);
 
             if (chest != null)
                 return chest;
@@ -75,9 +75,6 @@ namespace ACE.Mods.Legend.Lib.Common
             if (chest == null)
                 throw new Exception($"Failed to create container with id: {containerId}");
 
-            if (!chest.EnterWorld())
-                throw new Exception($"Failed to enter world, container with id ${containerId}");
-
             return chest;
         }
     }
@@ -93,7 +90,8 @@ namespace ACE.Mods.Legend.Lib.Common
             (
                 __instance is Storage ||
                 __instance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
-                __instance.Name == Constants.LISTING_CONTAINER_KEYCODE ||
+                __instance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE ||
+                __instance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
                 __instance.Name == Constants.MAIL_CONTAINER_KEYCODE
             )
             {

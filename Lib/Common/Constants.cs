@@ -9,14 +9,17 @@ namespace ACE.Mods.Legend.Lib.Common
 {
     internal class Constants
     {
-        public const string LISTING_CONTAINER_KEYCODE = "AUCTIONHOUSE_LISTING_CONTAINER";
+        public const string AUCTION_LISTINGS_CONTAINER_KEYCODE = "AUCTION_LISTINGS_CONTAINER";
+
+        public const string AUCTION_ITEMS_CONTAINER_KEYCODE = "AUCTION_ITEMS_CONTAINER";
 
         public const string MAIL_CONTAINER_KEYCODE = "MAIL_CONTAINER";
 
-        public static readonly Position MAIL_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01C2 [55.623619 -25.480036 0.005000] 0.999953 0.000000 0.000000 0.009710");
+        public static readonly Position AUCTION_LISTINGS_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01BC [52.976112 -25.481722 0.005000] 0.999953 0.000000 0.000000 0.009710");
 
-        public static readonly Position LISTING_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01BC [52.976112 -25.481722 0.005000] 0.999953 0.000000 0.000000 0.009710");
+        public static readonly Position AUCTION_ITEMS_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01BC [54.206287 -25.553112 0.005000] 0.999994 0.000000 0.000000 0.003473");
 
+        public static readonly Position MAIL_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01C2 [55.543549 -25.527214 0.005000] 0.999994 0.000000 0.000000 0.003473");
 
         // https://raw.githubusercontent.com/Mag-nus/Mag-Plugins/refs/heads/master/Shared/Constants/Dictionaries.cs
         public static class Dictionaries

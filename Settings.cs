@@ -1,5 +1,6 @@
 ﻿using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Common;
+using ACE.Mods.Legend.Lib.Mail;
 
 namespace ACE.Mods.Legend
 {
@@ -14,5 +15,11 @@ namespace ACE.Mods.Legend
         {
             nameof(AuctionPatches),
         };
+
+        public List<string> MailManager { get; set; } = new()
+        {
+            nameof(MailPatches),
+        };
+
     }
 }

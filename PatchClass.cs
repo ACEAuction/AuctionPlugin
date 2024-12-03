@@ -1,4 +1,5 @@
 ﻿using ACE.Mods.Legend.Lib.Common.Spells;
+using ACE.Mods.Legend.Lib.Mail;
 
 namespace ACE.Mods.Legend
 {
@@ -75,6 +76,7 @@ namespace ACE.Mods.Legend
 
             PatchContainerFactory();
             PatchAuctionManager();
+            PatchMailManager();
             SpellTools.Init();
 
             Mod.State = ModState.Running;
@@ -101,6 +103,12 @@ namespace ACE.Mods.Legend
         private void PatchAuctionManager()
         {
             foreach (var p in Settings.AuctionManager)
+                Mod.Harmony.PatchCategory(p);
+        }
+
+        private void PatchMailManager()
+        {
+            foreach (var p in Settings.MailManager)
                 Mod.Harmony.PatchCategory(p);
         }
 

@@ -107,12 +107,10 @@ namespace ACE.Mods.Legend.Lib.Common
 
             if (weaponType.HasValue && maxDamage.HasValue && maxDamage.Value > 0 && variance.HasValue && variance.Value > 0)
             {
-                ModManager.Log($"MAX DAMAGE {maxDamage.Value}", ModManager.LogLevel.Error);
                 sb.Append($", {((maxDamage.Value) - (maxDamage.Value * variance.Value)).ToString("N2")}-{maxDamage.Value}");
             }
             else if (maxDamage.HasValue && maxDamage != 0 && variance == 0)
             {
-                //ModManager.Log($"MAX DAMAGE {maxDamage.Value}", ModManager.LogLevel.Error);
                 sb.Append($", {maxDamage.Value}");
             }
 
@@ -228,8 +226,6 @@ namespace ACE.Mods.Legend.Lib.Common
                     sb.Append(", " + spellById.Name);
                 }
             }
-
-            ModManager.Log($"ITEM TYPE {wo.ItemType.ToString()}", ModManager.LogLevel.Error);
 
             var weaponSkill = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WeaponSkill);
             var wieldDiff = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WieldDifficulty);
