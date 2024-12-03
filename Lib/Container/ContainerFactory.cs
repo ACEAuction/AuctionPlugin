@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using ACE.Mods.Legend.Lib.Common;
 using static ACE.Server.WorldObjects.Player;
 using ACE.Mods.Legend.Lib.Mail;
+using ACE.Mods.Legend.Lib.Auction;
 
 namespace ACE.Mods.Legend.Lib.Container
 {
@@ -133,15 +134,21 @@ namespace ACE.Mods.Legend.Lib.Container
             player.LastOpenedContainerId = localInstance.Guid;
 
             localInstance.Viewer = player.Guid.Full;
+            var sendActionChain = new ActionChain();
+            sendActionChain.AddDelaySeconds(0.5);
+            sendActionChain.AddAction(player, () =>
+            {
+                //SendUpdateForMyInventory(player, localInstance);
+            });
+            sendActionChain.EnqueueChain();
+
 
             if (!localInstance.IsOpen)
                 localInstance.DoOnOpenMotionChanges();
 
-            localInstance.IsOpen = true;
-
             var customContainerOpen = player.GetProperty(FakeBool.IsCustomContainerOpen);
 
-            if (customContainerOpen.HasValue && customContainerOpen.Value)
+            if (customContainerOpen.HasValue && customContainerOpen.Value && localInstance.IsOpen)
             {
                 player.Session.Network.EnqueueSend(new GameEventCloseGroundContainer(player.Session, localInstance));
 
@@ -149,10 +156,15 @@ namespace ACE.Mods.Legend.Lib.Container
                     player.LastOpenedContainerId = ObjectGuid.Invalid;
                 player.SetProperty(FakeBool.IsCustomContainerOpen, false);
             } else
+            {
                 player.SetProperty(FakeBool.IsCustomContainerOpen, true);
+            }
+
+            localInstance.IsOpen = true;
 
             ModManager.Log("SENDING INVENTORY");
             localInstance.SendInventory(player);
+
 
             if (!(localInstance is Chest) && !localInstance.ResetMessagePending && localInstance.ResetInterval.HasValue)
             {
@@ -173,6 +185,67 @@ namespace ACE.Mods.Legend.Lib.Container
             return false;
         }
 
+        private static void SendUpdateForMyInventory(Player player, ACE.Server.WorldObjects.Container container)
+        {
+            List<GameMessage> list = new List<GameMessage>();
+            var itemsToSend = new List<GameMessage>();
+            var inventory = new List<WorldObject>();
+
+            if (container.Name == Constants.MAIL_CONTAINER_KEYCODE)
+                inventory = container.Inventory.Values
+                    .Where(item =>
+                    {
+                        var mailTo = item.GetProperty(ACE.Shared.FakeIID.MailTo);
+                        return mailTo.HasValue && mailTo.Value == player.Guid.Full;
+                    }).OrderByDescending(item => item.Value).ToList();
+
+            if (container.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE)
+                inventory = container.Inventory.Values.ToList();
+
+            foreach (WorldObject value in inventory)
+            {
+                ModManager.Log($"NAME = {value.Name}");
+                list.Add(new GameMessageUpdateObject(value));
+                if (!(value is ACE.Server.WorldObjects.Container nextedContainer))
+                {
+                    continue;
+                }
+
+                foreach (WorldObject value2 in nextedContainer.Inventory.Values)
+                {
+                    list.Add(new GameMessageUpdateObject(value2));
+                }
+            }
+
+            player.Session.Network.EnqueueSend(list);
+        }
+
+        public class PatchedGameEventViewContents : GameEventMessage
+        {
+            public PatchedGameEventViewContents(Session session, ACE.Server.WorldObjects.Container container, List<WorldObject> inventory)
+                : base(GameEventType.ViewContents, GameMessageGroup.UIQueue, session)
+            {
+                base.Writer.Write(container.Guid.Full);
+                base.Writer.Write((uint)inventory.Count);
+                foreach (WorldObject item in inventory)
+                {
+                    base.Writer.Write(item.Guid.Full);
+                    if (item.WeenieType == WeenieType.Container)
+                    {
+                        base.Writer.Write(1u);
+                    }
+                    else if (item.RequiresPackSlot)
+                    {
+                        base.Writer.Write(2u);
+                    }
+                    else
+                    {
+                        base.Writer.Write(0u);
+                    }
+                }
+            }
+        }
+
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), "SendInventory", new Type[] { typeof(Player) })]
         public static bool PreSendInventory(Player player, ref ACE.Server.WorldObjects.Container __instance)
@@ -185,13 +258,25 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
-            if (localInstance.Name == Constants.MAIL_CONTAINER_KEYCODE)
+            if (localInstance.Name == Constants.MAIL_CONTAINER_KEYCODE )
                 inventory = localInstance.Inventory.Values
                     .Where(item =>
                     {
                         var mailTo = item.GetProperty(ACE.Shared.FakeIID.MailTo);
                         return mailTo.HasValue && mailTo.Value == player.Guid.Full;
-                    }).ToList();
+                    }).OrderByDescending(item => item.ItemType).ToList();
+
+            if (localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
+                inventory = localInstance.Inventory.Values
+                    .Where(item =>
+                    {
+                        var listingOwner = item.GetProperty(FakeIID.ListingOwnerId);
+                        return listingOwner.HasValue && listingOwner.Value == player.Guid.Full;
+
+                    }).OrderByDescending(item => item.ItemType).ToList();
+
+            if (localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE)
+                inventory = localInstance.Inventory.Values.ToList();
 
             foreach (var item in inventory)
             {
@@ -203,15 +288,17 @@ namespace ACE.Mods.Legend.Lib.Container
                 if (item is ACE.Server.WorldObjects.Container container)
                 {
                     foreach (var containerItem in container.Inventory.Values)
+                    {
                         itemsToSend.Add(new GameMessageCreateObject(containerItem));
+                    }
                 }
             }
 
-            player.Session.Network.EnqueueSend(new GameEventViewContents(player.Session, localInstance));
+            player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, localInstance, inventory));
 
-            // send sub-containers
-            foreach (var container in inventory.Where(i => i is ACE.Server.WorldObjects.Container))
-                player.Session.Network.EnqueueSend(new GameEventViewContents(player.Session, (ACE.Server.WorldObjects.Container)container));
+            // send sub-containersC
+            //foreach (var container in inventory.Where(i => i is ACE.Server.WorldObjects.Container))
+                //player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, (ACE.Server.WorldObjects.Container)container), new List<WorldObject>());
 
             ModManager.Log($"Items to Send Count: {itemsToSend.Count}");
             player.Session.Network.EnqueueSend(itemsToSend);
@@ -399,12 +486,24 @@ namespace ACE.Mods.Legend.Lib.Container
 
 
             if (item == null)
+            {
                 if (lastOpenedContainer != null && IsCustomContainer(lastOpenedContainer) && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(itemGuid), out var lastOpenedContainerItem))
                 {
                     item = lastOpenedContainerItem;
                     containerRootOwner = localInstance;
                     itemRootOwner = lastOpenedContainer;
                 }
+            } else
+            {
+                if (container != null && IsCustomContainer(container) && container.Guid.Full == AuctionManager.ItemsContainer.Guid.Full)
+                {
+                    //ModManager.Log($" CONTAINER ROOT OWERN = {containerRootOwner.Guid.Full} ISOPEN ={container.IsOpen}  VIEWER = {container.Viewer} localInstance.GUID = {localInstance.Guid.Full}", ModManager.LogLevel.Warn);
+                    localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid));
+                    __result = false;
+                    return false;
+                }
+            }
+
 
             if (item == null)
             {
@@ -530,11 +629,11 @@ namespace ACE.Mods.Legend.Lib.Container
                 }
             }
   
+            ModManager.Log($" CONTAINER ROOT OWERN = {containerRootOwner.Guid.Full} ISOPEN ={container.IsOpen}  VIEWER = {container.Viewer} localInstance.GUID = {localInstance.Guid.Full}", ModManager.LogLevel.Warn);
             if (containerRootOwner == null) // container is on landscape, so you must have it open
             {
-                if (!container.IsOpen || (!IsCustomContainer(container) && container.Viewer != localInstance.Guid.Full))
+                if (!container.IsOpen || (!IsCustomContainer(container)))
                 {
-                    ModManager.Log($"ISOPEN ={container.IsOpen}  VIEWER = {container.Viewer} localInstance.GUID = ", ModManager.LogLevel.Warn);
                     localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid, WeenieError.TheContainerIsClosed));
 
                     __result = false;
@@ -551,7 +650,9 @@ namespace ACE.Mods.Legend.Lib.Container
 
         private static bool IsCustomContainer(ACE.Server.WorldObjects.Container localInstance)
         {
-            return localInstance.Name == Constants.MAIL_CONTAINER_KEYCODE;
+            return localInstance.Name == Constants.MAIL_CONTAINER_KEYCODE || 
+                localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE || 
+                localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
         }
     }
 }

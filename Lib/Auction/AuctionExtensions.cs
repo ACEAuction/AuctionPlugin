@@ -73,6 +73,7 @@ namespace ACE.Mods.Legend.Lib.Auction
                 {
                     player.RemoveItemForTransfer(item, out WorldObject removedItem);
                     removedItem.SetProperty(FakeIID.ListingId, listingParchment.Guid.Full);
+                    removedItem.SetProperty(FakeIID.ListingOwnerId, player.Guid.Full);
                     removedItems.Add(removedItem);
                 }
 

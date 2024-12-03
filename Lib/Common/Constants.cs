@@ -9,11 +9,11 @@ namespace ACE.Mods.Legend.Lib.Common
 {
     internal class Constants
     {
-        public const string AUCTION_LISTINGS_CONTAINER_KEYCODE = "AUCTION_LISTINGS_CONTAINER";
+        public const string AUCTION_LISTINGS_CONTAINER_KEYCODE = "Auction Listing Contracts";
 
-        public const string AUCTION_ITEMS_CONTAINER_KEYCODE = "AUCTION_ITEMS_CONTAINER";
+        public const string AUCTION_ITEMS_CONTAINER_KEYCODE = "Auction Items";
 
-        public const string MAIL_CONTAINER_KEYCODE = "MAIL_CONTAINER";
+        public const string MAIL_CONTAINER_KEYCODE = "Bank";
 
         public static readonly Position AUCTION_LISTINGS_CONTAINER_LOCATION = Helpers.LocToPosition("0x016C01BC [52.976112 -25.481722 0.005000] 0.999953 0.000000 0.000000 0.009710");
 

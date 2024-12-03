@@ -1,10 +1,13 @@
 ﻿using ACE.Adapter.GDLE.Models;
 using ACE.Entity;
+using ACE.Entity.Enum.Properties;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Mods.Legend.Lib.Container;
 using ACE.Mods.Legend.Lib.Mail;
+using ACE.Server.Entity.Actions;
 using ACE.Server.Managers;
+using ACE.Server.Network;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using System.Collections.Concurrent;
@@ -29,13 +32,15 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         private static Chest CreateListingsContainer()
         {
-            return ContainerFactory
+            var container = ContainerFactory
                 .CreateContainer(Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE, Constants.AUCTION_LISTINGS_CONTAINER_LOCATION);
+            return container;
         }
         private static Chest CreateItemsContainer()
         {
-            return ContainerFactory
+            var container = ContainerFactory
                 .CreateContainer(Constants.AUCTION_ITEMS_CONTAINER_KEYCODE, Constants.AUCTION_ITEMS_CONTAINER_LOCATION);
+            return container;
         }
 
         public static void Tick(double currentUnixTime)
