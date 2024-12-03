@@ -17,7 +17,6 @@ namespace ACE.Mods.Legend.Lib.Mail
 
         private static readonly double TickTime = 5;
 
-
         public static WeakReference<Chest>? _mailContainer = null;
 
         public static Chest MailContainer => GetOrCreateMailContainer();
@@ -31,6 +30,10 @@ namespace ACE.Mods.Legend.Lib.Mail
 
         public static void Tick(double currentUnixTime)
         {
+
+            if (ServerManager.ShutdownInProgress)
+                return;
+
             var mailLb = LandblockManager.GetLandblock(Constants.MAIL_CONTAINER_LOCATION.LandblockId, false, true);
             if (mailLb.CreateWorldObjectsCompleted && mailLb.GetObject(MailContainer.Guid, false) == null)
                 MailContainer.EnterWorld();

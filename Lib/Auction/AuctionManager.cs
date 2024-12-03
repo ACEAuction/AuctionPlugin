@@ -40,6 +40,9 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         public static void Tick(double currentUnixTime)
         {
+            if (ServerManager.ShutdownInProgress)
+                return;
+
             var listingLb = LandblockManager.GetLandblock(Constants.AUCTION_LISTINGS_CONTAINER_LOCATION.LandblockId, false, true);
             var itemsLb = LandblockManager.GetLandblock(Constants.AUCTION_ITEMS_CONTAINER_LOCATION.LandblockId, false, true);
 
