@@ -191,6 +191,7 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
+            ModManager.Log($"CONTAINER = {container.Name}", ModManager.LogLevel.Warn);
             if (container.Name == Constants.Bank_CONTAINER_KEYCODE)
                 inventory = container.Inventory.Values
                     .Where(item =>
@@ -199,13 +200,7 @@ namespace ACE.Mods.Legend.Lib.Container
                         return BankId.HasValue && BankId.Value == player.Guid.Full;
                     }).OrderByDescending(item => item.Value).ToList();
 
-            if (container.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
-                inventory = container.Inventory.Values
-                    .Where(item =>
-                    {
-                        var listingOwner = item.GetProperty(ACE.Shared.FakeIID.ListingOwnerId);
-                        return listingOwner.HasValue && listingOwner.Value == player.Guid.Full;
-                    }).OrderByDescending(item => item.Value).ToList();
+
 
             foreach (WorldObject value in inventory)
             {
@@ -275,10 +270,18 @@ namespace ACE.Mods.Legend.Lib.Container
                 inventory = localInstance.Inventory.Values
                     .Where(item =>
                     {
-                        var listingOwner = item.GetProperty(FakeIID.ListingOwnerId);
-                        return listingOwner.HasValue && listingOwner.Value == player.Guid.Full;
+                        var bidOwnerId = item.GetBidOwnerId();
+                        var listingOwner = item.GetListingOwnerId();
 
-                    }).OrderByDescending(item => item.ItemType).ToList();
+                        ModManager.Log($"PLAYER = {player.Guid.Full}", ModManager.LogLevel.Warn);
+                        ModManager.Log($"BID OWNER = {bidOwnerId}", ModManager.LogLevel.Warn);
+                        ModManager.Log($"LISTING OWNER = {listingOwner}", ModManager.LogLevel.Warn);
+                        if (bidOwnerId > 0 && bidOwnerId == player.Guid.Full)
+                            return true;
+                        if (listingOwner > 0 && listingOwner == player.Guid.Full)
+                            return true;
+                        return false;
+                    }).OrderByDescending(item => item.Value).ToList();
 
 
             foreach (var item in inventory)
@@ -432,6 +435,32 @@ namespace ACE.Mods.Legend.Lib.Container
             return true;
         }
 
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Player), nameof(Player.HandleActionStackableMerge), new Type[] { typeof(uint), typeof(uint), typeof(int) })]
+        public static bool PreHandleActionStackableMerge(uint mergeFromGuid, uint mergeToGuid, int amount, ref Player __instance)
+        {
+            var localInstance = __instance;
+            var auctionItemsGuid = AuctionManager.ItemsContainer.Guid.Full;
+
+            if (amount <= 0)
+            {
+                return true;
+            }
+
+            localInstance.FindObject(mergeFromGuid, SearchLocations.LocationsICanMove, out _, out var sourceStackRootOwner, out _);
+            localInstance.FindObject(mergeToGuid, SearchLocations.LocationsICanMove, out _, out var targetStackRootOwner, out _);
+
+            if (AuctionManager.ItemsContainer == sourceStackRootOwner || AuctionManager.ItemsContainer == targetStackRootOwner)
+            {
+
+                localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, mergeFromGuid));
+                return false;
+            }
+            else
+                return true;
+        }
+
+
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(Player), "HandleActionPutItemInContainer_Verify", new Type[] { typeof(uint), typeof(uint), typeof(int), typeof(ACE.Server.WorldObjects.Container), typeof(WorldObject), typeof(ACE.Server.WorldObjects.Container), typeof(ACE.Server.WorldObjects.Container), typeof(bool) }, new ArgumentType[] { ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out })]
@@ -448,6 +477,7 @@ namespace ACE.Mods.Legend.Lib.Container
                 ref bool __result
             )
         {
+
             var localInstance = __instance;
 
             itemRootOwner = null;

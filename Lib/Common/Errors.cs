@@ -8,7 +8,7 @@ namespace ACE.Mods.Legend.Lib.Common.Errors
 {
     public class AuctionFailure : Exception
     {
-        private const string Prefix = "[AuctionHouse]";
+        private const string Prefix = "[AuctionFailure]";
 
         public AuctionFailure() : base($"{Prefix} Generic Auction Exception.") { }
 

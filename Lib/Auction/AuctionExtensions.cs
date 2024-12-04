@@ -9,6 +9,9 @@ using ACE.Server.Factories;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
+using static ACE.Mods.Legend.Lib.Auction.AuctionExtensions;
+using ACE.Entity.Enum.Properties;
+using System.Reflection;
 
 namespace ACE.Mods.Legend.Lib.Auction
 {
@@ -17,6 +20,51 @@ namespace ACE.Mods.Legend.Lib.Auction
         private static readonly ushort MaxAuctionHours = 168; // a week is the longest duration for an auction, this could be a server property
 
         private const string AuctionPrefix = "[AuctionHouse]";
+
+        /*listingParchment.Name = "Auction Listing Bid";
+                listingParchment.SetProperty(FakeIID.SellerId, player.Guid.Full);
+                listingParchment.SetProperty(FakeString.SellerName, player.Name);
+                listingParchment.SetProperty(FakeInt.ListingCurrencyType, (int) currencyType);
+                listingParchment.SetProperty(FakeInt.ListingStartPrice, (int) startPrice);
+                listingParchment.SetProperty(FakeFloat.ListingStartTimestamp, (double) Time.GetUnixTime(startTime));
+                listingParchment.SetProperty(FakeFloat.ListingEndTimestamp, (double) Time.GetUnixTime(endTime));
+                listingParchment.SetProperty(FakeString.ListingStatus, "active");*/
+
+        public static uint GetListingId(this WorldObject item) =>
+            item.GetProperty(FakeIID.ListingId) ?? 0;
+        public static uint GetSellerId(this WorldObject item) =>
+            item.GetProperty(FakeIID.SellerId) ?? 0;
+        public static uint GetListingOwnerId(this WorldObject item) =>
+            item.GetProperty(FakeIID.ListingOwnerId) ?? 0;
+        public static int GetListingStartPrice(this WorldObject item) =>
+            item.GetProperty(FakeInt.ListingStartPrice) ?? 0;
+        public static int GetCurrencyType(this WorldObject item) =>
+            item.GetProperty(FakeInt.ListingCurrencyType) ?? 0;
+        public static int GetHighestBid(this WorldObject item) =>
+            item.GetProperty(FakeInt.ListingHighBid) ?? 0;
+        public static uint GetHighestBidder(this WorldObject item) =>
+            item.GetProperty(FakeIID.HighestBidderId) ?? 0;
+        public static string GetHighestBidderName(this WorldObject item) =>
+            item.GetProperty(FakeString.HighestBidderName) ?? "";
+        public static string GetSellerName(this WorldObject item) =>
+            item.GetProperty(FakeString.SellerName) ?? "";
+        public static string GetListingStatus(this WorldObject item) =>
+            item.GetProperty(FakeString.ListingStatus) ?? "";
+        public static double GetListingStartTimestamp(this WorldObject item) =>
+            item.GetProperty(FakeFloat.ListingStartTimestamp) ?? 0;
+        public static double GetListingEndTimestamp(this WorldObject item) =>
+            item.GetProperty(FakeFloat.ListingEndTimestamp) ?? 0;
+        public static double GetBidTimestamp(this WorldObject item) =>
+            item.GetProperty(FakeFloat.BidTimestamp) ?? 0;
+        public static uint GetBidOwnerId(this WorldObject item) =>
+            item.GetProperty(FakeIID.BidOwnerId) ?? 0;
+
+
+        private static void Log(string message, ModManager.LogLevel level = ModManager.LogLevel.Info)
+        {
+            ModManager.Log($"[AuctionHouse] {message}", level);
+        }
+
 
         public static void SendAuctionMessage(this Player player, string message, ChatMessageType messageType = ChatMessageType.System)
         {
@@ -48,6 +96,158 @@ namespace ACE.Mods.Legend.Lib.Auction
             taggedItem = item;
         }
 
+        public static void ValidateAuctionBid(this Player player, WorldObject listing, uint bidAmount, out List<WorldObject> bidItems)
+        {
+            if(listing.GetListingStatus() != "active")
+                throw new AuctionFailure($"Failed to place auction bid, the listing for this bid is not currently active");
+
+            if (listing.GetHighestBidder() == player.Guid.Full)
+                throw new AuctionFailure($"Failed to place auction bid, you are already the highest bidder");
+
+            var listingHighBid = listing.GetHighestBid();
+
+            if (listingHighBid > 0 && listingHighBid > bidAmount)
+                throw new AuctionFailure($"Failed to place auction bid, your bid isn't high enough");
+
+            var currencyType = listing.GetCurrencyType();
+
+            if (currencyType == 0)
+                throw new AuctionFailure($"Failed to place auction bid, this listing does not have a currency type");
+
+            var listingStartPrice = listing.GetListingStartPrice();
+
+            var endTime = listing.GetListingEndTimestamp();
+
+            if (endTime > 0 && Time.GetDateTimeFromTimestamp(endTime) < DateTime.UtcNow)
+                throw new AuctionFailure($"Failed to place auction bid, this listing has already expired");
+
+            var numOfItems = player.GetNumInventoryItemsOfWCID((uint)currencyType);
+
+            if (numOfItems < listingHighBid || numOfItems < listingStartPrice)
+                throw new AuctionFailure($"Failed to place auction bid, you do not have enough currency items to out bid");
+
+            var items = player.GetInventoryItemsOfWCID((uint)currencyType);
+
+            Log($"Bid Items COUNT = {items.Count}", ModManager.LogLevel.Warn);
+
+            if (items.Count > 0)
+            {
+                items.ForEach(item => Log($"BID ITEM STACK SIZE = {item.StackSize}", ModManager.LogLevel.Warn));
+            }
+
+            bidItems = items;
+        }
+
+        public static void PlaceAuctionBid(this Player player, uint listingId, uint bidAmount)
+        {
+            List<WorldObject> removedNewBidItems = new List<WorldObject>();
+            List<WorldObject> removedOldBidItems = new List<WorldObject>();
+            var listing = AuctionManager.GetListingById(listingId);
+
+            if (listing == null)
+                throw new AuctionFailure($"Failed to place auction bid, the listing with Id = {listingId} does not exist");
+
+            var previousHighBidder = listing.GetHighestBidder();
+            var previousHighBidderName = listing.GetHighestBidderName();
+            var previousHighBid = listing.GetHighestBid();
+
+            try
+            {
+                ValidateAuctionBid(player, listing, bidAmount, out List<WorldObject> items);   
+
+                foreach(var item in AuctionManager.ItemsContainer.Inventory.Values.Where(item => item.GetBidOwnerId() > 0 && item.GetBidOwnerId() == listing.GetHighestBidder()))
+                {
+                    if (!AuctionManager.TryRemoveFromItemsContainer(item))
+                        throw new AuctionFailure($"Failed to place auction bid, couldn't remove old bid item from Auction Items Chest");
+
+                    if (!BankManager.TryAddToBankContainer(item))
+                        throw new AuctionFailure($"Failed to place auction bid, couldn't add old bid item to Bank");
+
+                    Log("REMOVED OLD BID");
+                    item.SetProperty(FakeIID.BidOwnerId, 0);
+                    item.SetProperty(FakeIID.ListingId, 0);
+                    item.SetProperty(FakeIID.BankId, previousHighBidder);
+                    removedOldBidItems.Add(item);
+                }
+
+                var total = (int)bidAmount;
+                var bidTime = DateTime.UtcNow;
+
+                foreach (var item in items)
+                {
+                    if (total <= 0)
+                        break;
+
+                    var amount = (item.StackSize > total ? total : item.StackSize) ?? 1;
+                    player.RemoveItemForTransfer(item.Guid.Full, out var removedItem, amount);
+                    Log($"REMOVED ITEM STACK SIZE = {removedItem.StackSize}", ModManager.LogLevel.Warn);
+                    removedItem.SetProperty(FakeFloat.BidTimestamp, (double)Time.GetUnixTime(bidTime));
+                    removedItem.SetProperty(FakeIID.BidOwnerId, player.Guid.Full);
+                    removedItem.SetProperty(FakeIID.ListingId, listingId);
+
+                    Log($"TOTAL AUCTION ITEMS COUNT = {AuctionManager.ItemsContainer.Inventory.Count}", ModManager.LogLevel.Warn);
+
+                    if (!AuctionManager.TryAddToItemsContainer(removedItem))
+                        throw new AuctionFailure($"Failed to place bid, item couldn't be added to the Auction Items Chest");
+
+                    Log($"TOTAL AUCTION ITEMS COUNT = {AuctionManager.ItemsContainer.Inventory.Count}", ModManager.LogLevel.Warn);
+
+                    total -= amount;
+                    Log($"TOTAL AMOUNT = {total}", ModManager.LogLevel.Warn);
+                    removedNewBidItems.Add(removedItem);
+                }
+
+                Log($"Bid Items COUNT = {removedNewBidItems.Count}", ModManager.LogLevel.Warn);
+
+                if (removedNewBidItems.Count > 0)
+                {
+                    removedNewBidItems.ForEach(item => Log($"BID ITEM STACK SIZE = {item.StackSize}", ModManager.LogLevel.Warn));
+                }
+
+                listing.SetProperty(FakeIID.HighestBidderId, player.Guid.Full);
+                listing.SetProperty(FakeString.HighestBidderName, player.Name);
+                listing.SetProperty(FakeInt.ListingHighBid, (int)bidAmount);
+
+                player.SendAuctionMessage($"Successfully created an auction bid on listing with Id = {listingId}, Seller = {listing.GetSellerName()} BidAmount={bidAmount}", ChatMessageType.Broadcast);
+            }
+            catch (AuctionFailure ex)
+            {
+                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
+                player.SendAuctionMessage(ex.Message);
+                listing.SetProperty(FakeIID.HighestBidderId, previousHighBidder);
+                listing.SetProperty(FakeString.HighestBidderName, previousHighBidderName);
+                listing.SetProperty(FakeInt.ListingHighBid, previousHighBid);
+
+                foreach (var item in removedOldBidItems)
+                {
+                    item.SetProperty(FakeIID.BankId, 0);
+                    item.SetProperty(FakeIID.BidOwnerId, previousHighBidder);
+                    item.SetProperty(FakeIID.ListingId, listing.GetListingId());
+
+                    if (!BankManager.TryRemoveFromBankContainer(item))
+                        throw new AuctionFailure($"Failed to place auction bid, couldn't remove old bid item to Bank");
+                    
+                    if (!AuctionManager.TryAddToItemsContainer(item))
+                        throw new AuctionFailure($"Failed to place auction bid, couldn't remove old bid item from Auction Items Chest");
+                }
+
+                foreach (var item in removedNewBidItems)
+                {
+                    item.RemoveProperty(FakeIID.BidOwnerId);
+                    item.RemoveProperty(FakeIID.ListingId);
+
+                    if (!AuctionManager.TryRemoveFromItemsContainer(item))
+                        throw new AuctionFailure($"Failed to place auction bid, couldn't remove new bid item from Auction Items Chest");
+
+                    if (!player.TryCreateInInventoryWithNetworking(item))
+                    {
+                        if (!BankManager.TryAddToBankContainer(item))
+                            throw new AuctionFailure($"Failed to place auction bid, couldn't return items back to bidder or add to bank");
+                    }
+                }
+            }
+        }
+
         public static void PlaceAuctionSell(this Player player, List<uint> itemList, uint currencyType, uint startPrice, ushort hoursDuration)
         {
             List<WorldObject> removedItems = new List<WorldObject>();
@@ -68,6 +268,8 @@ namespace ACE.Mods.Legend.Lib.Auction
                 listingParchment.SetProperty(FakeFloat.ListingStartTimestamp, (double)Time.GetUnixTime(startTime));
                 listingParchment.SetProperty(FakeFloat.ListingEndTimestamp, (double)Time.GetUnixTime(endTime));
                 listingParchment.SetProperty(FakeString.ListingStatus, "active");
+
+                ModManager.Log($"[AuctionHouse] Placing aucton bid listinId = {listingParchment.Guid.Full}");
 
                 foreach (var item in itemList)
                 {
@@ -94,7 +296,10 @@ namespace ACE.Mods.Legend.Lib.Auction
 
                 currency = weenie.GetName();
 
-                player.SendAuctionMessage($"Successfully created an auction listing with Id = {listingParchment.Guid.Full}, Seller = {player.Name}, Currency = {currency}, StartingPrice = {startPrice}", ChatMessageType.Broadcast);
+                var timespan = endTime - DateTime.UtcNow;
+                var remaining = Helpers.FormatTimeRemaining(timespan);
+
+                player.SendAuctionMessage($"Successfully created an auction listing with Id = {listingParchment.Guid.Full}, Seller = {player.Name}, Currency = {currency}, StartingPrice = {startPrice}, TimeRemaining = {remaining}", ChatMessageType.Broadcast);
 
                 foreach (var item in removedItems)
                 {

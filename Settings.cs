@@ -1,6 +1,6 @@
-﻿using ACE.Mods.Legend.Lib.Auction;
-using ACE.Mods.Legend.Lib.Container;
+﻿using ACE.Mods.Legend.Lib.Container;
 using ACE.Mods.Legend.Lib.Bank;
+using ACE.Mods.Legend.Lib.Auction;
 
 namespace ACE.Mods.Legend
 {
