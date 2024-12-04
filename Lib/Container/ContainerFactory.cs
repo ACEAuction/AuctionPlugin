@@ -280,8 +280,6 @@ namespace ACE.Mods.Legend.Lib.Container
 
                     }).OrderByDescending(item => item.ItemType).ToList();
 
-            if (localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE)
-                inventory = localInstance.Inventory.Values.ToList();
 
             foreach (var item in inventory)
             {
@@ -490,25 +488,12 @@ namespace ACE.Mods.Legend.Lib.Container
             containerRootOwner = containerRootOwner;
 
 
-            if (item == null)
+            if (item == null && lastOpenedContainer != null && IsCustomContainer(lastOpenedContainer) && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(itemGuid), out var lastOpenedContainerItem))
             {
-                if (lastOpenedContainer != null && IsCustomContainer(lastOpenedContainer) && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(itemGuid), out var lastOpenedContainerItem))
-                {
-                    item = lastOpenedContainerItem;
-                    containerRootOwner = localInstance;
-                    itemRootOwner = lastOpenedContainer;
-                }
-            } else
-            {
-                if (container != null && IsCustomContainer(container) && container.Guid.Full == AuctionManager.ItemsContainer.Guid.Full)
-                {
-                    //ModManager.Log($" CONTAINER ROOT OWERN = {containerRootOwner.Guid.Full} ISOPEN ={container.IsOpen}  VIEWER = {container.Viewer} localInstance.GUID = {localInstance.Guid.Full}", ModManager.LogLevel.Warn);
-                    localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid));
-                    __result = false;
-                    return false;
-                }
-            }
-
+                item = lastOpenedContainerItem;
+                containerRootOwner = localInstance;
+                itemRootOwner = lastOpenedContainer;
+            } 
 
             if (item == null)
             {
@@ -541,6 +526,18 @@ namespace ACE.Mods.Legend.Lib.Container
                 localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid));
                 __result = false;
                 return false;
+            }
+
+            ModManager.Log($" CONTAINER = {container} ITEM = {item} CONTAINER ROOT OWNER ={containerRootOwner} ITEM ROOT OWNER ={itemRootOwner}", ModManager.LogLevel.Warn);
+            if (container != null && (IsCustomContainer(container) || (itemRootOwner != null && IsCustomContainer(itemRootOwner))))
+            {
+                // prevent add/remove from auction house items chest 
+                if (container == AuctionManager.ItemsContainer || itemRootOwner == AuctionManager.ItemsContainer)
+                {
+                    localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid));
+                    __result = false;
+                    return false;
+                }
             }
 
             if (container is Corpse)
@@ -634,7 +631,6 @@ namespace ACE.Mods.Legend.Lib.Container
                 }
             }
   
-            ModManager.Log($" CONTAINER ROOT OWERN = {containerRootOwner.Guid.Full} ISOPEN ={container.IsOpen}  VIEWER = {container.Viewer} localInstance.GUID = {localInstance.Guid.Full}", ModManager.LogLevel.Warn);
             if (containerRootOwner == null) // container is on landscape, so you must have it open
             {
                 if (!container.IsOpen || (!IsCustomContainer(container)))
