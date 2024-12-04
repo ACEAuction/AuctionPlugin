@@ -2,7 +2,7 @@
 using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
-using ACE.Mods.Legend.Lib.Mail;
+using ACE.Mods.Legend.Lib.Bank;
 using ACE.Server.Command.Handlers;
 using ACE.Server.Entity.Actions;
 using ACE.Server.Factories;
@@ -127,8 +127,8 @@ namespace ACE.Mods.Legend.Lib.Auction
 
                         if (!player.TryCreateInInventoryWithNetworking(removedItem))
                         {
-                            player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it by mail");
-                            MailManager.TryAddToMailContainer(removedItem);
+                            player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it by Bank");
+                            BankManager.TryAddToBankContainer(removedItem);
                         }
 
                         var stackSize = removedItem.StackSize ?? 1;

@@ -19,17 +19,17 @@ namespace ACE.Mods.Legend.Lib.Common.Errors
             : base($"{Prefix} {message}", innerException) { }
     }
 
-    public class MailFailure : Exception
+    public class BankFailure : Exception
     {
-        private const string Prefix = "[MailFailure]";
+        private const string Prefix = "[BankFailure]";
 
-        public MailFailure()
-            : base($"{Prefix} Generic mail failure Exception.") { }
+        public BankFailure()
+            : base($"{Prefix} Generic Bank failure Exception.") { }
 
-        public MailFailure(string message)
+        public BankFailure(string message)
             : base($"{Prefix} {message}") { }
 
-        public MailFailure(string message, Exception innerException)
+        public BankFailure(string message, Exception innerException)
             : base($"{Prefix} {message}", innerException) { }
     }
 

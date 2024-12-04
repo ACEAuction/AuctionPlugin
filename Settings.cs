@@ -1,6 +1,6 @@
 ﻿using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Container;
-using ACE.Mods.Legend.Lib.Mail;
+using ACE.Mods.Legend.Lib.Bank;
 
 namespace ACE.Mods.Legend
 {
@@ -16,9 +16,9 @@ namespace ACE.Mods.Legend
             nameof(AuctionPatches),
         };
 
-        public List<string> MailManager { get; set; } = new()
+        public List<string> BankManager { get; set; } = new()
         {
-            nameof(MailPatches),
+            nameof(BankPatches),
         };
 
     }

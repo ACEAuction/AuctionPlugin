@@ -4,7 +4,7 @@ using ACE.Entity.Enum.Properties;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Mods.Legend.Lib.Container;
-using ACE.Mods.Legend.Lib.Mail;
+using ACE.Mods.Legend.Lib.Bank;
 using ACE.Server.Entity.Actions;
 using ACE.Server.Managers;
 using ACE.Server.Network;
@@ -62,7 +62,7 @@ namespace ACE.Mods.Legend.Lib.Auction
 
             NextTickTime = currentUnixTime + TickTime;
 
-            if (!ListingsContainer.InventoryLoaded || !ItemsContainer.InventoryLoaded || !MailManager.MailContainer.InventoryLoaded)
+            if (!ListingsContainer.InventoryLoaded || !ItemsContainer.InventoryLoaded || !BankManager.BankContainer.InventoryLoaded)
                 return;
 
             lock (AuctionLock)
@@ -114,13 +114,13 @@ namespace ACE.Mods.Legend.Lib.Auction
                     if (!TryRemoveFromItemsContainer(item))
                         throw new AuctionFailure("Failed to removed expired items");
 
-                    if (!MailManager.TryAddToMailContainer(item))
-                        throw new AuctionFailure($"Failed to add completed auction item with Id = {item.Guid.Full} to Mailbox");
+                    if (!BankManager.TryAddToBankContainer(item))
+                        throw new AuctionFailure($"Failed to add completed auction item with Id = {item.Guid.Full} to Bankbox");
                     else
                     {
                         item.RemoveProperty(FakeIID.ListingId);
-                        var mailTo = highestBidderId.HasValue ? highestBidderId.Value : sellerId.Value;
-                        item.SetProperty(FakeIID.MailTo, mailTo);
+                        var BankId = highestBidderId.HasValue ? highestBidderId.Value : sellerId.Value;
+                        item.SetProperty(FakeIID.BankId, BankId);
                     }
                 }
 
@@ -135,9 +135,9 @@ namespace ACE.Mods.Legend.Lib.Auction
 
                 foreach(var item in auctionItems)
                 {
-                    MailManager.TryRemoveFromMailContainer(item);
+                    BankManager.TryRemoveFromBankContainer(item);
                     item.SetProperty(FakeIID.ListingId, activeListing.Guid.Full);
-                    item.RemoveProperty(FakeIID.MailTo);
+                    item.RemoveProperty(FakeIID.BankId);
                     if (ItemsContainer.Inventory.ContainsKey(item.Guid))
                         TryAddToItemsContainer(item);
                 }

@@ -15,7 +15,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ACE.Mods.Legend.Lib.Common;
 using static ACE.Server.WorldObjects.Player;
-using ACE.Mods.Legend.Lib.Mail;
+using ACE.Mods.Legend.Lib.Bank;
 using ACE.Mods.Legend.Lib.Auction;
 
 namespace ACE.Mods.Legend.Lib.Container
@@ -98,7 +98,7 @@ namespace ACE.Mods.Legend.Lib.Container
                 __instance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
                 __instance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE ||
                 __instance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
-                __instance.Name == Constants.MAIL_CONTAINER_KEYCODE
+                __instance.Name == Constants.Bank_CONTAINER_KEYCODE
             )
             {
                 __result = false; // Do not clear storage, ever.
@@ -191,12 +191,12 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
-            if (container.Name == Constants.MAIL_CONTAINER_KEYCODE)
+            if (container.Name == Constants.Bank_CONTAINER_KEYCODE)
                 inventory = container.Inventory.Values
                     .Where(item =>
                     {
-                        var mailTo = item.GetProperty(ACE.Shared.FakeIID.MailTo);
-                        return mailTo.HasValue && mailTo.Value == player.Guid.Full;
+                        var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
+                        return BankId.HasValue && BankId.Value == player.Guid.Full;
                     }).OrderByDescending(item => item.Value).ToList();
 
             if (container.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
@@ -263,12 +263,12 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
-            if (localInstance.Name == Constants.MAIL_CONTAINER_KEYCODE )
+            if (localInstance.Name == Constants.Bank_CONTAINER_KEYCODE )
                 inventory = localInstance.Inventory.Values
                     .Where(item =>
                     {
-                        var mailTo = item.GetProperty(ACE.Shared.FakeIID.MailTo);
-                        return mailTo.HasValue && mailTo.Value == player.Guid.Full;
+                        var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
+                        return BankId.HasValue && BankId.Value == player.Guid.Full;
                     }).OrderByDescending(item => item.ItemType).ToList();
 
             if (localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
@@ -283,8 +283,8 @@ namespace ACE.Mods.Legend.Lib.Container
 
             foreach (var item in inventory)
             {
-                var mailTo = item.GetProperty(ACE.Shared.FakeIID.MailTo);
-                ModManager.Log($"NAME = {item.Name}, mailTo = {mailTo}");
+                var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
+                ModManager.Log($"NAME = {item.Name}, BankId = {BankId}");
                 // FIXME: only send messages for unknown objects
                 itemsToSend.Add(new GameMessageCreateObject(item));
 
@@ -531,6 +531,10 @@ namespace ACE.Mods.Legend.Lib.Container
             ModManager.Log($" CONTAINER = {container} ITEM = {item} CONTAINER ROOT OWNER ={containerRootOwner} ITEM ROOT OWNER ={itemRootOwner}", ModManager.LogLevel.Warn);
             if (container != null && (IsCustomContainer(container) || (itemRootOwner != null && IsCustomContainer(itemRootOwner))))
             {
+                // set the bank id here any time a player attempts to remove or add an item to the bank. 
+                if (container == BankManager.BankContainer || itemRootOwner == BankManager.BankContainer)
+                    item.SetProperty(FakeIID.BankId, localInstance.Guid.Full);
+
                 // prevent add/remove from auction house items chest 
                 if (container == AuctionManager.ItemsContainer || itemRootOwner == AuctionManager.ItemsContainer)
                 {
@@ -651,7 +655,7 @@ namespace ACE.Mods.Legend.Lib.Container
 
         private static bool IsCustomContainer(ACE.Server.WorldObjects.Container localInstance)
         {
-            return localInstance.Name == Constants.MAIL_CONTAINER_KEYCODE || 
+            return localInstance.Name == Constants.Bank_CONTAINER_KEYCODE || 
                 localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE || 
                 localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
         }
