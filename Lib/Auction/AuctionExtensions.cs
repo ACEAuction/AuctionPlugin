@@ -17,6 +17,8 @@ namespace ACE.Mods.Legend.Lib.Auction
 {
     public static class AuctionExtensions
     {
+        static Settings Settings => PatchClass.Settings;
+
         private static readonly ushort MaxAuctionHours = 168; // a week is the longest duration for an auction, this could be a server property
 
         private const string AuctionPrefix = "[AuctionHouse]";
@@ -280,109 +282,153 @@ namespace ACE.Mods.Legend.Lib.Auction
             }
         }
 
+        public class AuctionSellState
+        {
+            public List<WorldObject> RemovedItems { get; }
+            public Book ListingParchment { get; }
+            public string CurrencyName { get; }
+            public TimeSpan RemainingTime { get; }
+
+            public AuctionSellState(List<WorldObject> removedItems, Book listingParchment, string currencyName, TimeSpan remainingTime)
+            {
+                RemovedItems = removedItems ?? throw new ArgumentNullException(nameof(removedItems));
+                ListingParchment = listingParchment ?? throw new ArgumentNullException(nameof(listingParchment));
+                CurrencyName = currencyName ?? throw new ArgumentNullException(nameof(currencyName));
+                RemainingTime = remainingTime;
+            }
+        }
+
         public static void PlaceAuctionSell(this Player player, List<uint> itemList, uint currencyType, uint startPrice, ushort hoursDuration)
         {
-            List<WorldObject> removedItems = new List<WorldObject>();
+            var startTime = DateTime.UtcNow;
+
+            var endTime = Settings.IsDev ? startTime.AddSeconds(hoursDuration) : startTime.AddHours(hoursDuration);
             Book listingParchment = (Book)WorldObjectFactory.CreateNewWorldObject(365);
+            string currencyName = GetCurrencyName(currencyType);
+
+            // Initialize the auction state using the new constructor
+            var state = new AuctionSellState(
+                new List<WorldObject>(),
+                listingParchment,
+                currencyName,
+                endTime - startTime
+            );
 
             try
             {
                 player.ValidateAuctionSell(hoursDuration);
-
-                var startTime = DateTime.UtcNow;
-                var endTime = startTime.AddSeconds(hoursDuration);
-
-                listingParchment.Name = "Auction Listing Invoice";
-                listingParchment.SetProperty(FakeIID.SellerId, player.Guid.Full);
-                listingParchment.SetProperty(FakeString.SellerName, player.Name);
-                listingParchment.SetProperty(FakeInt.ListingCurrencyType, (int)currencyType);
-                listingParchment.SetProperty(FakeInt.ListingStartPrice, (int)startPrice);
-                listingParchment.SetProperty(FakeFloat.ListingStartTimestamp, (double)Time.GetUnixTime(startTime));
-                listingParchment.SetProperty(FakeFloat.ListingEndTimestamp, (double)Time.GetUnixTime(endTime));
-                listingParchment.SetProperty(FakeString.ListingStatus, "active");
-
-                ModManager.Log($"[AuctionHouse] Placing aucton bid listinId = {listingParchment.Guid.Full}");
-
-                foreach (var item in itemList)
-                {
-                    player.RemoveItemForTransfer(item, out WorldObject removedItem);
-                    removedItem.SetProperty(FakeIID.ListingId, listingParchment.Guid.Full);
-                    removedItem.SetProperty(FakeIID.ListingOwnerId, player.Guid.Full);
-                    removedItems.Add(removedItem);
-                }
-
-                foreach (var item in removedItems)
-                {
-                    if (item == null || !AuctionManager.TryAddToItemsContainer(item))
-                        throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {item?.Name} to listing container");
-                }
-
-                if (!AuctionManager.TryAddToListingsContainer(listingParchment))
-                    throw new AuctionFailure($"Failed to place auction listing, couldn't transfer listing item {listingParchment.Name} to listing container");
-
-                var currency = "";
-                Weenie weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
-
-                if (weenie == null)
-                    throw new AuctionFailure($"Failed to place auction listing, currencyType does not have a valid weenie");
-
-                currency = weenie.GetName();
-
-                var timespan = endTime - DateTime.UtcNow;
-                var remaining = Helpers.FormatTimeRemaining(timespan);
-
-                player.SendAuctionMessage($"Successfully created an auction listing with Id = {listingParchment.Guid.Full}, Seller = {player.Name}, Currency = {currency}, StartingPrice = {startPrice}, TimeRemaining = {remaining}", ChatMessageType.Broadcast);
-
-                foreach (var item in removedItems)
-                {
-                    var message = $"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}, Count = {item.StackSize ?? 1}";
-                    player.SendAuctionMessage(message);
-                }
-
+                InitializeListingParchment(player, currencyType, startPrice, startTime, endTime, state);
+                RemoveItemsForListing(player, itemList, state);
+                TransferItemsToAuctionContainer(state);
+                AddListingToAuctionContainer(state);
+                FinalizeAuctionListing(player, state);
                 player.ClearTags();
             }
             catch (AuctionFailure ex)
             {
-                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                player.SendAuctionMessage($"placing auction listing failed");
-                player.SendAuctionMessage(ex.Message);
+                HandleAuctionSellFailure(player, state, ex.Message);
+                throw;
+            }
+        }
 
-                foreach (WorldObject removedItem in removedItems)
+        private static string GetCurrencyName(uint currencyType)
+        {
+            var weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
+            if (weenie == null)
+                throw new AuctionFailure($"Failed to get currency name from weenie with Id = {currencyType}");
+            return weenie.GetName();
+        }
+
+        private static void InitializeListingParchment(Player player, uint currencyType, uint startPrice, DateTime startTime, DateTime endTime, AuctionSellState state)
+        {
+            var parchment = state.ListingParchment;
+
+            parchment.Name = "Auction Listing Invoice";
+            parchment.SetProperty(FakeIID.SellerId, player.Guid.Full);
+            parchment.SetProperty(FakeString.SellerName, player.Name);
+            parchment.SetProperty(FakeInt.ListingCurrencyType, (int)currencyType);
+            parchment.SetProperty(FakeInt.ListingStartPrice, (int)startPrice);
+            parchment.SetProperty(FakeFloat.ListingStartTimestamp, (double)Time.GetUnixTime(startTime));
+            parchment.SetProperty(FakeFloat.ListingEndTimestamp, (double)Time.GetUnixTime(endTime));
+            parchment.SetProperty(FakeString.ListingStatus, "active");
+
+            ModManager.Log($"[AuctionHouse] Initialized listing parchment with Id = {parchment.Guid.Full}", ModManager.LogLevel.Warn);
+        }
+
+        private static void RemoveItemsForListing(Player player, List<uint> itemList, AuctionSellState state)
+        {
+            foreach (var itemId in itemList)
+            {
+                player.RemoveItemForTransfer(itemId, out var removedItem);
+                removedItem.SetProperty(FakeIID.ListingId, state.ListingParchment.Guid.Full);
+                removedItem.SetProperty(FakeIID.ListingOwnerId, player.Guid.Full);
+                state.RemovedItems.Add(removedItem);
+            }
+        }
+
+        private static void TransferItemsToAuctionContainer(AuctionSellState state)
+        {
+            foreach (var item in state.RemovedItems)
+            {
+                if (item == null || !AuctionManager.TryAddToItemsContainer(item))
                 {
-                    removedItem.RemoveProperty(FakeIID.ListingId);
+                    throw new AuctionFailure($"Failed to transfer listing item {item?.Name} to the auction container.");
+                }
+            }
+        }
 
-                    if (player.HasItemOnPerson(removedItem.Guid.Full, out var _))
-                        continue;
+        private static void AddListingToAuctionContainer(AuctionSellState state)
+        {
+            if (!AuctionManager.TryAddToListingsContainer(state.ListingParchment))
+            {
+                throw new AuctionFailure($"Failed to transfer listing parchment {state.ListingParchment.Name} to the auction container.");
+            }
+        }
+        private static void FinalizeAuctionListing(Player player, AuctionSellState state)
+        {
+            var remaining = Helpers.FormatTimeRemaining(state.RemainingTime);
+            player.SendAuctionMessage($"Successfully created an auction listing with Id = {state.ListingParchment.Guid.Full}, Seller = {player.Name}, Currency = {state.CurrencyName}, TimeRemaining = {remaining}", ChatMessageType.Broadcast);
 
+            foreach (var item in state.RemovedItems)
+            {
+                var message = $"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}, Count = {item.StackSize ?? 1}";
+                player.SendAuctionMessage(message);
+            }
+        }
+
+        private static void HandleAuctionSellFailure(Player player, AuctionSellState state, string errorMessage)
+        {
+            ModManager.Log(errorMessage, ModManager.LogLevel.Error);
+            player.SendAuctionMessage("Placing auction listing failed");
+            player.SendAuctionMessage(errorMessage);
+
+            foreach (var removedItem in state.RemovedItems)
+            {
+                removedItem.RemoveProperty(FakeIID.ListingId);
+
+                if (!player.HasItemOnPerson(removedItem.Guid.Full, out _))
+                {
                     var actionChain = new ActionChain();
                     actionChain.AddDelaySeconds(0.5);
                     actionChain.AddAction(player, () =>
                     {
                         player.SendAuctionMessage($"Attempting to return listing item {removedItem.NameWithMaterial}");
-
                         AuctionManager.TryRemoveFromItemsContainer(removedItem);
 
                         if (!player.TryCreateInInventoryWithNetworking(removedItem))
                         {
-                            player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it by Bank");
+                            player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it to the bank.");
                             BankManager.TryAddToBankContainer(removedItem);
                         }
 
-                        var stackSize = removedItem.StackSize ?? 1;
-
-                        var stackMsg = stackSize != 1 ? $"{stackSize:N0} " : "";
-                        var itemName = removedItem.GetNameWithMaterial(stackSize);
-
-                        player.SendAuctionMessage($"Auction House gives you {stackMsg}{itemName}.", ChatMessageType.Broadcast);
                         player.EnqueueBroadcast(new GameMessageSound(player.Guid, Sound.ReceiveItem));
                     });
                     actionChain.EnqueueChain();
                 }
-
-                player.TryConsumeFromInventoryWithNetworking(listingParchment.Guid.Full);
-
-                listingParchment.Destroy();
             }
+
+            player.TryConsumeFromInventoryWithNetworking(state.ListingParchment.Guid.Full);
+            state.ListingParchment.Destroy();
         }
 
         public static bool HasItemOnPerson(this Player player, uint itemId, out WorldObject foundItem)
