@@ -1,20 +1,12 @@
-﻿using ACE.Adapter.GDLE.Models;
-using ACE.Entity;
-using ACE.Entity.Enum.Properties;
+﻿using ACE.Entity;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Mods.Legend.Lib.Container;
 using ACE.Mods.Legend.Lib.Bank;
-using ACE.Server.Entity.Actions;
 using ACE.Server.Managers;
-using ACE.Server.Network;
 using ACE.Server.Network.GameMessages.Messages;
-using ACE.Shared;
 using System.Collections.Concurrent;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using ACE.Server.Command.Handlers;
-using ACE.Server.WorldObjects;
-using static ACE.Server.WorldObjects.Player;
 using ACE.Database;
 using ACE.Entity.Models;
 

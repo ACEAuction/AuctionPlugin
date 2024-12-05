@@ -4,7 +4,6 @@ using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Mods.Legend.Lib.Container;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages.Messages;
-using ACE.Shared;
 using System.Collections.Concurrent;
 
 namespace ACE.Mods.Legend.Lib.Bank

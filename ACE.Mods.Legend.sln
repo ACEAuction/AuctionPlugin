@@ -5,8 +5,6 @@ VisualStudioVersion = 17.9.34701.34
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ACE.Mods.Legend", "ACE.Mods.Legend.csproj", "{EF2868B5-2FAF-44E9-93B3-9E792261B704}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ACE.Shared", "..\aquafir\ACE.BaseMod\ACE.Shared\ACE.Shared.csproj", "{62F20D98-B1BB-4628-951C-225F55E40094}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{EF2868B5-2FAF-44E9-93B3-9E792261B704}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EF2868B5-2FAF-44E9-93B3-9E792261B704}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EF2868B5-2FAF-44E9-93B3-9E792261B704}.Release|Any CPU.Build.0 = Release|Any CPU
-		{62F20D98-B1BB-4628-951C-225F55E40094}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{62F20D98-B1BB-4628-951C-225F55E40094}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{62F20D98-B1BB-4628-951C-225F55E40094}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{62F20D98-B1BB-4628-951C-225F55E40094}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
