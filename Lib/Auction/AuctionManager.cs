@@ -64,7 +64,7 @@ namespace ACE.Mods.Legend.Lib.Auction
             if (listingLb.CreateWorldObjectsCompleted && listingLb.GetObject(ListingsContainer.Guid, false) == null)
                 ListingsContainer.EnterWorld();
 
-            if (itemsLb.CreateWorldObjectsCompleted && itemsLb.GetObject(ListingsContainer.Guid, false) == null)
+            if (itemsLb.CreateWorldObjectsCompleted && itemsLb.GetObject(ItemsContainer.Guid, false) == null)
                 ListingsContainer.EnterWorld();
 
             if (NextTickTime > currentUnixTime)
