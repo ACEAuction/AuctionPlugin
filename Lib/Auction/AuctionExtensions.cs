@@ -12,6 +12,7 @@ using static ACE.Server.WorldObjects.Player;
 using static ACE.Mods.Legend.Lib.Auction.AuctionExtensions;
 using ACE.Entity.Enum.Properties;
 using System.Reflection;
+using ACE.Server.Network;
 
 namespace ACE.Mods.Legend.Lib.Auction
 {
@@ -379,6 +380,8 @@ namespace ACE.Mods.Legend.Lib.Auction
                 var message = $"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}, Count = {item.StackSize ?? 1}";
                 player.SendAuctionMessage(message);
             }
+            player.SetProperty(FakeBool.IsAuctionTagging, false);
+            player.SendAuctionMessage("auction tagging has been disabled");
         }
 
         private static void HandleAuctionSellFailure(Player player, AuctionSellState state, string errorMessage)
