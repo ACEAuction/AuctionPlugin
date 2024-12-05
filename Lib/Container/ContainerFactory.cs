@@ -98,7 +98,7 @@ namespace ACE.Mods.Legend.Lib.Container
                 __instance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
                 __instance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE ||
                 __instance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
-                __instance.Name == Constants.Bank_CONTAINER_KEYCODE
+                __instance.Name == Constants.BANK_CONTAINER_KEYCODE
             )
             {
                 __result = false; // Do not clear storage, ever.
@@ -190,7 +190,7 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
-            if (container.Name == Constants.Bank_CONTAINER_KEYCODE)
+            if (container.Name == Constants.BANK_CONTAINER_KEYCODE)
                 inventory = container.Inventory.Values
                     .Where(item =>
                     {
@@ -255,7 +255,7 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
-            if (localInstance.Name == Constants.Bank_CONTAINER_KEYCODE )
+            if (localInstance.Name == Constants.BANK_CONTAINER_KEYCODE )
                 inventory = localInstance.Inventory.Values
                     .Where(item =>
                     {
@@ -679,7 +679,7 @@ namespace ACE.Mods.Legend.Lib.Container
 
         private static bool IsCustomContainer(ACE.Server.WorldObjects.Container localInstance)
         {
-            return localInstance.Name == Constants.Bank_CONTAINER_KEYCODE || 
+            return localInstance.Name == Constants.BANK_CONTAINER_KEYCODE || 
                 localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE || 
                 localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
         }

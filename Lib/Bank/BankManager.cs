@@ -24,7 +24,7 @@ namespace ACE.Mods.Legend.Lib.Bank
         private static Chest CreateBankContainer()
         {
             return ContainerFactory
-                .CreateContainer(Constants.Bank_CONTAINER_KEYCODE, Constants.Bank_CONTAINER_LOCATION);
+                .CreateContainer(Constants.BANK_CONTAINER_KEYCODE, Constants.BANK_CONTAINER_LOCATION);
         }
 
         public static void Tick(double currentUnixTime)
@@ -33,7 +33,7 @@ namespace ACE.Mods.Legend.Lib.Bank
             if (ServerManager.ShutdownInProgress)
                 return;
 
-            var BankLb = LandblockManager.GetLandblock(Constants.Bank_CONTAINER_LOCATION.LandblockId, false, true);
+            var BankLb = LandblockManager.GetLandblock(Constants.BANK_CONTAINER_LOCATION.LandblockId, false, true);
             if (BankLb.CreateWorldObjectsCompleted && BankLb.GetObject(BankContainer.Guid, false) == null)
                 BankContainer.EnterWorld();
 
