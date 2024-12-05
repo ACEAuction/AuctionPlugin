@@ -58,51 +58,23 @@ namespace ACE.Mods.Legend.Lib.Auction
             if (ServerManager.ShutdownInProgress)
                 return;
 
-            var listingLb = LandblockManager.GetLandblock(Constants.AUCTION_LISTINGS_CONTAINER_LOCATION.LandblockId, false, true);
-            var itemsLb = LandblockManager.GetLandblock(Constants.AUCTION_ITEMS_CONTAINER_LOCATION.LandblockId, false, true);
+            EnsureContainersAreLoaded();
 
-            if (listingLb.CreateWorldObjectsCompleted && listingLb.GetObject(ListingsContainer.Guid, false) == null)
-                ListingsContainer.EnterWorld();
-
-            if (itemsLb.CreateWorldObjectsCompleted && itemsLb.GetObject(ItemsContainer.Guid, false) == null)
-                ItemsContainer.EnterWorld();
-
-            if (NextTickTime > currentUnixTime)
+            if (NextTickTime > currentUnixTime || !AreInventoriesLoaded())
                 return;
 
             NextTickTime = currentUnixTime + TickTime;
-
-            if (!ListingsContainer.InventoryLoaded || !ItemsContainer.InventoryLoaded || !BankManager.BankContainer.InventoryLoaded)
-                return;
 
             lock (AuctionLock)
             {
                 try
                 {
-                    var activeListing = ListingsContainer.Inventory.Values
-                        .FirstOrDefault(item =>
-                        {
-                            var status = item.GetListingStatus();
-                            var endTime = item.GetListingEndTimestamp();
-                            return (status == "active") && endTime < currentUnixTime;
-                        });
-
+                    var activeListing = GetExpiredListing(currentUnixTime);
                     if (activeListing != null)
                     {
                         Log($"Active listing Id = {activeListing.Guid.Full}");
-                        var items = ItemsContainer.Inventory.Values
-                            .Where(item =>
-                            {
-                                var bidOwnerId = item.GetBidOwnerId();
-                                var listingOwner = item.GetListingOwnerId();
-                                if (bidOwnerId > 0 && bidOwnerId == activeListing.GetHighestBidder())
-                                    return true;
-                                if (listingOwner > 0 && listingOwner == activeListing.GetSellerId())
-                                    return true;
-                                return false;
-                            })
-                            .ToList();
-                        ProcessExpiredListing(activeListing, items);
+                        var relatedItems = GetRelatedItems(activeListing);
+                        ProcessExpiredListing(activeListing, relatedItems);
                     }
                 }
                 catch (Exception ex)
@@ -111,6 +83,50 @@ namespace ACE.Mods.Legend.Lib.Auction
                 }
             }
         }
+
+        private static void EnsureContainersAreLoaded()
+        {
+            var listingLb = LandblockManager.GetLandblock(Constants.AUCTION_LISTINGS_CONTAINER_LOCATION.LandblockId, false, true);
+            var itemsLb = LandblockManager.GetLandblock(Constants.AUCTION_ITEMS_CONTAINER_LOCATION.LandblockId, false, true);
+
+            if (listingLb.CreateWorldObjectsCompleted && listingLb.GetObject(ListingsContainer.Guid, false) == null)
+                ListingsContainer.EnterWorld();
+
+            if (itemsLb.CreateWorldObjectsCompleted && itemsLb.GetObject(ItemsContainer.Guid, false) == null)
+                ItemsContainer.EnterWorld();
+        }
+
+        private static bool AreInventoriesLoaded()
+        {
+            return ListingsContainer.InventoryLoaded &&
+                   ItemsContainer.InventoryLoaded &&
+                   BankManager.BankContainer.InventoryLoaded;
+        }
+
+        private static WorldObject? GetExpiredListing(double currentUnixTime)
+        {
+            return ListingsContainer.Inventory.Values.FirstOrDefault(item =>
+            {
+                var status = item.GetListingStatus();
+                var endTime = item.GetListingEndTimestamp();
+                return (status == "active") && endTime < currentUnixTime;
+            });
+        }
+
+        private static List<WorldObject> GetRelatedItems(WorldObject activeListing)
+        {
+            return ItemsContainer.Inventory.Values
+                .Where(item =>
+                {
+                    var bidOwnerId = item.GetBidOwnerId();
+                    var listingOwner = item.GetListingOwnerId();
+
+                    return (bidOwnerId > 0 && bidOwnerId == activeListing.GetHighestBidder()) ||
+                           (listingOwner > 0 && listingOwner == activeListing.GetSellerId());
+                })
+                .ToList();
+        }
+
 
         private static void ProcessExpiredListing(WorldObject activeListing, List<WorldObject> auctionItems)
         {
