@@ -114,11 +114,9 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         private static void ProcessExpiredListing(WorldObject activeListing, List<WorldObject> auctionItems)
         {
-
             var sellerId = activeListing.GetSellerId();
             var sellerName = activeListing.GetSellerName();
             var highestBidderId = activeListing.GetHighestBidder();
-
 
             var addedListingItems = new List<WorldObject>();
             var addedBidItems = new List<WorldObject>();
@@ -126,88 +124,109 @@ namespace ACE.Mods.Legend.Lib.Auction
             var bidItems = auctionItems.Where(item => highestBidderId > 0 && item.GetBidOwnerId() == highestBidderId).ToList();
             var listingItems = auctionItems.Where(item => item.GetListingOwnerId() == sellerId).ToList();
 
-            Log($"Processing Expired Items for {activeListing.Guid.Full} Count: {auctionItems.Count}", ModManager.LogLevel.Warn);
-            Log($"ListingId = {activeListing.Guid.Full}");
-            Log($"Seller = {sellerName}");
-            Log($"HighestBidderId = {highestBidderId}");
-            Log($"bidItems Count = {bidItems.Count}");
-            Log($"listingItems Count = {listingItems.Count}");
+            LogListingDetails(activeListing, auctionItems, sellerName, highestBidderId, bidItems.Count, listingItems.Count);
 
             try
             {
-                foreach (var item in listingItems)
+                ProcessItems(listingItems, item =>
                 {
-                    var BankId = highestBidderId > 0 ? highestBidderId : sellerId;
-                    item.RemoveProperty(FakeIID.ListingId);
-                    item.RemoveProperty(FakeIID.ListingOwnerId);
-                    item.SetProperty(FakeIID.BankId, BankId);
+                    var bankId = highestBidderId > 0 ? highestBidderId : sellerId;
+                    PrepareItemForBank(item, bankId, sellerId);
+                    TransferItemToBank(item, addedListingItems, "listing");
+                });
 
-                    if (!TryRemoveFromItemsContainer(item))
-                        throw new AuctionFailure($"Failed to remove expired auction listing item with Id = {item.Guid.Full} from Auction Items Chest");
-
-                    if (!BankManager.TryAddToBankContainer(item))
-                        throw new AuctionFailure($"Failed to add completed auction listing item with Id = {item.Guid.Full} to Bankbox");
-
-                    Log($"Removed expired listing item {item.Name} ", ModManager.LogLevel.Warn);
-                    addedListingItems.Add(item);
-                }
-
-                foreach (var item in bidItems)
+                ProcessItems(bidItems, item =>
                 {
-                    item.SetProperty(FakeIID.BankId, sellerId);
-                    item.RemoveProperty(FakeIID.BidOwnerId);
-                    item.RemoveProperty(FakeIID.ListingId);
+                    PrepareItemForBank(item, sellerId, highestBidderId, isBid: true);
+                    TransferItemToBank(item, addedBidItems, "bid");
+                });
 
-                    if (!TryRemoveFromItemsContainer(item))
-                        throw new AuctionFailure($"Failed to remove expired auction bid item with Id = {item.Guid.Full} from Auction Items Chest");
-
-                    if (!BankManager.TryAddToBankContainer(item))
-                        throw new AuctionFailure($"Failed to add completed auction bid item with Id = {item.Guid.Full} to Bankbox");
-
-                    Log($"Removed expired bid item {item.Name} ", ModManager.LogLevel.Warn);
-                    addedBidItems.Add(item);
-                }
-
-                Log($"Completed Expired Items for {activeListing.Guid.Full}", ModManager.LogLevel.Warn);
-                activeListing.SetProperty(FakeString.ListingStatus, "complete");
+                FinalizeActiveListing(activeListing, "complete");
             }
             catch (AuctionFailure ex)
             {
-                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                activeListing.SetProperty(FakeString.ListingStatus, "failed");
-
-                foreach (var item in addedListingItems)
-                {
-                    var BankId = highestBidderId > 0 ? highestBidderId : sellerId;
-                    item.SetProperty(FakeIID.ListingId, activeListing.GetListingId());
-                    item.SetProperty(FakeIID.ListingOwnerId, sellerId);
-                    item.RemoveProperty(FakeIID.BankId);
-
-                    if (!BankManager.TryRemoveFromBankContainer(item))
-                        throw new AuctionFailure($"Failed to remove failed auction listing item with Id = {item.Guid.Full} from Bankbox");
-
-                    if (!TryAddToItemsContainer(item))
-                        throw new AuctionFailure($"Failed to add failed auction listing item with Id = {item.Guid.Full} to Auction Items Chest");
-
-                    Log($"Removed failed list item {item.Name} ", ModManager.LogLevel.Warn);
-                }
-
-                foreach (var item in addedBidItems)
-                {
-                    item.RemoveProperty(FakeIID.BankId);
-                    item.SetProperty(FakeIID.BidOwnerId, highestBidderId);
-                    item.SetProperty(FakeIID.ListingId, activeListing.GetListingId());
-
-                    if (!BankManager.TryRemoveFromBankContainer(item))
-                        throw new AuctionFailure($"Failed to remove failed auction bid item with Id = {item.Guid.Full} from Bankbox");
-
-                    if (!TryAddToItemsContainer(item))
-                        throw new AuctionFailure($"Failed to add failed auction bid item with Id = {item.Guid.Full} to Auction Items Chest");
-
-                    Log($"Removed failed bid item {item.Name} ", ModManager.LogLevel.Warn);
-                }
+                HandleAuctionFailure(activeListing, ex.Message);
+                RestoreFailedItems(addedListingItems, sellerId, activeListing.GetListingId(), true);
+                RestoreFailedItems(addedBidItems, highestBidderId, activeListing.GetListingId(), false);
+                throw;
             }
         }
+
+        private static void LogListingDetails(WorldObject listing, List<WorldObject> items, string sellerName, uint highestBidderId, int bidItemsCount, int listingItemsCount)
+        {
+            Log($"Processing Expired Items for {listing.Guid.Full} Count: {items.Count}", ModManager.LogLevel.Warn);
+            Log($"ListingId = {listing.Guid.Full}");
+            Log($"Seller = {sellerName}");
+            Log($"HighestBidderId = {highestBidderId}");
+            Log($"bidItems Count = {bidItemsCount}");
+            Log($"listingItems Count = {listingItemsCount}");
+        }
+
+        private static void ProcessItems(IEnumerable<WorldObject> items, Action<WorldObject> processItem)
+        {
+            foreach (var item in items)
+            {
+                processItem(item);
+            }
+        }
+
+        private static void PrepareItemForBank(WorldObject item, uint bankId, uint ownerId, bool isBid = false)
+        {
+            item.RemoveProperty(FakeIID.ListingId);
+            item.RemoveProperty(isBid ? FakeIID.BidOwnerId : FakeIID.ListingOwnerId);
+            item.SetProperty(FakeIID.BankId, bankId);
+        }
+
+        private static void TransferItemToBank(WorldObject item, List<WorldObject> addedItems, string itemType)
+        {
+            if (!TryRemoveFromItemsContainer(item))
+                throw new AuctionFailure($"Failed to remove expired auction {itemType} item with Id = {item.Guid.Full} from Auction Items Chest");
+
+            if (!BankManager.TryAddToBankContainer(item))
+                throw new AuctionFailure($"Failed to add completed auction {itemType} item with Id = {item.Guid.Full} to Bankbox");
+
+            Log($"Removed expired {itemType} item {item.Name}", ModManager.LogLevel.Warn);
+            addedItems.Add(item);
+        }
+
+        private static void FinalizeActiveListing(WorldObject listing, string status)
+        {
+            Log($"Completed Expired Items for {listing.Guid.Full}", ModManager.LogLevel.Warn);
+            listing.SetProperty(FakeString.ListingStatus, status);
+        }
+
+        private static void HandleAuctionFailure(WorldObject listing, string errorMessage)
+        {
+            ModManager.Log(errorMessage, ModManager.LogLevel.Error);
+            listing.SetProperty(FakeString.ListingStatus, "failed");
+        }
+
+        private static void RestoreFailedItems(IEnumerable<WorldObject> items, uint ownerId, uint listingId, bool isListing)
+        {
+            foreach (var item in items)
+            {
+                item.RemoveProperty(FakeIID.BankId);
+                if (isListing)
+                {
+                    item.SetProperty(FakeIID.ListingId, listingId);
+                    item.SetProperty(FakeIID.ListingOwnerId, ownerId);
+                }
+                else
+                {
+                    item.SetProperty(FakeIID.BidOwnerId, ownerId);
+                    item.SetProperty(FakeIID.ListingId, listingId);
+                }
+
+                if (!BankManager.TryRemoveFromBankContainer(item))
+                    throw new AuctionFailure($"Failed to remove failed auction {(isListing ? "listing" : "bid")} item with Id = {item.Guid.Full} from Bankbox");
+
+                if (!TryAddToItemsContainer(item))
+                    throw new AuctionFailure($"Failed to add failed auction {(isListing ? "listing" : "bid")} item with Id = {item.Guid.Full} to Auction Items Chest");
+
+                Log($"Restored failed {(isListing ? "listing" : "bid")} item {item.Name}", ModManager.LogLevel.Warn);
+            }
+        }
+
 
         private static Chest GetOrCreateListingsContainer()
         {
