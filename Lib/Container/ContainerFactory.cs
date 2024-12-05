@@ -162,7 +162,6 @@ namespace ACE.Mods.Legend.Lib.Container
 
             localInstance.IsOpen = true;
 
-            ModManager.Log("SENDING INVENTORY");
             localInstance.SendInventory(player);
 
 
@@ -191,7 +190,6 @@ namespace ACE.Mods.Legend.Lib.Container
             var itemsToSend = new List<GameMessage>();
             var inventory = new List<WorldObject>();
 
-            ModManager.Log($"CONTAINER = {container.Name}", ModManager.LogLevel.Warn);
             if (container.Name == Constants.Bank_CONTAINER_KEYCODE)
                 inventory = container.Inventory.Values
                     .Where(item =>
@@ -204,7 +202,6 @@ namespace ACE.Mods.Legend.Lib.Container
 
             foreach (WorldObject value in inventory)
             {
-                ModManager.Log($"NAME = {value.Name}");
                 list.Add(new GameMessageUpdateObject(value));
                 if (!(value is ACE.Server.WorldObjects.Container nextedContainer))
                 {
@@ -273,9 +270,6 @@ namespace ACE.Mods.Legend.Lib.Container
                         var bidOwnerId = item.GetBidOwnerId();
                         var listingOwner = item.GetListingOwnerId();
 
-                        ModManager.Log($"PLAYER = {player.Guid.Full}", ModManager.LogLevel.Warn);
-                        ModManager.Log($"BID OWNER = {bidOwnerId}", ModManager.LogLevel.Warn);
-                        ModManager.Log($"LISTING OWNER = {listingOwner}", ModManager.LogLevel.Warn);
                         if (bidOwnerId > 0 && bidOwnerId == player.Guid.Full)
                             return true;
                         if (listingOwner > 0 && listingOwner == player.Guid.Full)
@@ -287,7 +281,6 @@ namespace ACE.Mods.Legend.Lib.Container
             foreach (var item in inventory)
             {
                 var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
-                ModManager.Log($"NAME = {item.Name}, BankId = {BankId}");
                 // FIXME: only send messages for unknown objects
                 itemsToSend.Add(new GameMessageCreateObject(item));
 
@@ -306,7 +299,6 @@ namespace ACE.Mods.Legend.Lib.Container
             //foreach (var container in inventory.Where(i => i is ACE.Server.WorldObjects.Container))
                 //player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, (ACE.Server.WorldObjects.Container)container), new List<WorldObject>());
 
-            ModManager.Log($"Items to Send Count: {itemsToSend.Count}");
             player.Session.Network.EnqueueSend(itemsToSend);
 
             return false;
@@ -562,7 +554,6 @@ namespace ACE.Mods.Legend.Lib.Container
                 return false;
             }
 
-            ModManager.Log($" CONTAINER = {container} ITEM = {item} CONTAINER ROOT OWNER ={containerRootOwner} ITEM ROOT OWNER ={itemRootOwner}", ModManager.LogLevel.Warn);
             if (container != null && (IsCustomContainer(container) || (itemRootOwner != null && IsCustomContainer(itemRootOwner))))
             {
                 // set the bank id here any time a player attempts to remove or add an item to the bank. 
@@ -612,7 +603,6 @@ namespace ACE.Mods.Legend.Lib.Container
 
                 if (containerRootOwner != null && !containerRootOwner.IsOpen)
                 {
-                    ModManager.Log($"CONTAINER ROOT OWNER = {containerRootOwner.Name}, ISOPEN = {containerRootOwner.IsOpen}", ModManager.LogLevel.Warn);
                     localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid, WeenieError.TheContainerIsClosed));
                     __result = false;
                     return false;

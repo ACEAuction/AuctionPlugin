@@ -23,15 +23,6 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         private const string AuctionPrefix = "[AuctionHouse]";
 
-        /*listingParchment.Name = "Auction Listing Bid";
-                listingParchment.SetProperty(FakeIID.SellerId, player.Guid.Full);
-                listingParchment.SetProperty(FakeString.SellerName, player.Name);
-                listingParchment.SetProperty(FakeInt.ListingCurrencyType, (int) currencyType);
-                listingParchment.SetProperty(FakeInt.ListingStartPrice, (int) startPrice);
-                listingParchment.SetProperty(FakeFloat.ListingStartTimestamp, (double) Time.GetUnixTime(startTime));
-                listingParchment.SetProperty(FakeFloat.ListingEndTimestamp, (double) Time.GetUnixTime(endTime));
-                listingParchment.SetProperty(FakeString.ListingStatus, "active");*/
-
         public static uint GetListingId(this WorldObject item) =>
             item.GetProperty(FakeIID.ListingId) ?? 0;
         public static uint GetSellerId(this WorldObject item) =>
@@ -62,12 +53,6 @@ namespace ACE.Mods.Legend.Lib.Auction
             item.GetProperty(FakeIID.BidOwnerId) ?? 0;
         public static bool GetAuctionTagging(this Player player) =>
             player.GetProperty(FakeBool.IsAuctionTagging) ?? false;
-
-
-        private static void Log(string message, ModManager.LogLevel level = ModManager.LogLevel.Info)
-        {
-            ModManager.Log($"[AuctionHouse] {message}", level);
-        }
 
         public static void SendAuctionMessage(this Player player, string message, ChatMessageType messageType = ChatMessageType.System)
         {

@@ -21,7 +21,6 @@ namespace ACE.Mods.Legend.Lib.Bank
 
         public static Chest BankContainer => GetOrCreateBankContainer();
 
-
         private static Chest CreateBankContainer()
         {
             return ContainerFactory
