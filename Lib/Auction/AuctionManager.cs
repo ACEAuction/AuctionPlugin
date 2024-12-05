@@ -112,8 +112,6 @@ namespace ACE.Mods.Legend.Lib.Auction
             }
         }
 
-
-
         private static void ProcessExpiredListing(WorldObject activeListing, List<WorldObject> auctionItems)
         {
 
@@ -127,8 +125,6 @@ namespace ACE.Mods.Legend.Lib.Auction
 
             var bidItems = auctionItems.Where(item => highestBidderId > 0 && item.GetBidOwnerId() == highestBidderId).ToList();
             var listingItems = auctionItems.Where(item => item.GetListingOwnerId() == sellerId).ToList();
-
-            Debugger.Break();
 
             Log($"Processing Expired Items for {activeListing.Guid.Full} Count: {auctionItems.Count}", ModManager.LogLevel.Warn);
             Log($"ListingId = {activeListing.Guid.Full}");
@@ -489,7 +485,9 @@ namespace ACE.Mods.Legend.Lib.Auction
 
                 try
                 {
-                    session.Player.InspectTagItem(objectId.Full);
+                    var isTagging = session.Player.GetAuctionTagging();
+                    session.Player.SetProperty(FakeBool.IsAuctionTagging, !isTagging);
+                    session.Player.SendAuctionMessage($"Toggling auction tag inspect = {!isTagging}");
                 }
                 catch (AuctionFailure ex)
                 {

@@ -430,6 +430,10 @@ namespace ACE.Mods.Legend.Lib.Container
             localInstance.RequestedAppraisalTarget = objectGuid;
             localInstance.AppraisalRequestedTimestamp = currentTime;
 
+            var isAuctionTagging = localInstance.GetAuctionTagging();
+            if (isAuctionTagging)
+                localInstance.InspectTagItem(objectGuid);
+
             localInstance.Examine(wo);
 
             return true;

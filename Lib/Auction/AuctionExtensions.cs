@@ -58,6 +58,8 @@ namespace ACE.Mods.Legend.Lib.Auction
             item.GetProperty(FakeFloat.BidTimestamp) ?? 0;
         public static uint GetBidOwnerId(this WorldObject item) =>
             item.GetProperty(FakeIID.BidOwnerId) ?? 0;
+        public static bool GetAuctionTagging(this Player player) =>
+            player.GetProperty(FakeBool.IsAuctionTagging) ?? false;
 
 
         private static void Log(string message, ModManager.LogLevel level = ModManager.LogLevel.Info)
@@ -96,7 +98,7 @@ namespace ACE.Mods.Legend.Lib.Auction
             taggedItem = item;
         }
 
-        public static void ValidateAuctionBid(this Player player, WorldObject listing, uint bidAmount, out List<WorldObject> bidItems)
+        private static void ValidateAuctionBid(this Player player, WorldObject listing, uint bidAmount)
         {
             if(listing.GetListingStatus() != "active")
                 throw new AuctionFailure($"Failed to place auction bid, the listing for this bid is not currently active");
@@ -123,19 +125,11 @@ namespace ACE.Mods.Legend.Lib.Auction
 
             var numOfItems = player.GetNumInventoryItemsOfWCID((uint)currencyType);
 
-            if (numOfItems < listingHighBid || numOfItems < listingStartPrice)
-                throw new AuctionFailure($"Failed to place auction bid, you do not have enough currency items to out bid");
+            if (bidAmount < listingStartPrice)
+                throw new AuctionFailure($"Failed to place auction bid, your bid amount is less than the starting price");
 
-            var items = player.GetInventoryItemsOfWCID((uint)currencyType);
-
-            Log($"Bid Items COUNT = {items.Count}", ModManager.LogLevel.Warn);
-
-            if (items.Count > 0)
-            {
-                items.ForEach(item => Log($"BID ITEM STACK SIZE = {item.StackSize}", ModManager.LogLevel.Warn));
-            }
-
-            bidItems = items;
+            if (numOfItems < listingHighBid || numOfItems < listingStartPrice )
+                throw new AuctionFailure($"Failed to place auction bid, you do not have enough currency items to bid on this listing");
         }
 
         public static void PlaceAuctionBid(this Player player, uint listingId, uint bidAmount)
@@ -153,7 +147,10 @@ namespace ACE.Mods.Legend.Lib.Auction
 
             try
             {
-                ValidateAuctionBid(player, listing, bidAmount, out List<WorldObject> items);   
+                ValidateAuctionBid(player, listing, bidAmount);
+
+                var currencyType = listing.GetCurrencyType();
+                var bidItems = player.GetInventoryItemsOfWCID((uint)currencyType);
 
                 foreach(var item in AuctionManager.ItemsContainer.Inventory.Values.Where(item => item.GetBidOwnerId() > 0 && item.GetBidOwnerId() == listing.GetHighestBidder()))
                 {
@@ -163,7 +160,6 @@ namespace ACE.Mods.Legend.Lib.Auction
                     if (!BankManager.TryAddToBankContainer(item))
                         throw new AuctionFailure($"Failed to place auction bid, couldn't add old bid item to Bank");
 
-                    Log("REMOVED OLD BID");
                     item.SetProperty(FakeIID.BidOwnerId, 0);
                     item.SetProperty(FakeIID.ListingId, 0);
                     item.SetProperty(FakeIID.BankId, previousHighBidder);
@@ -173,24 +169,19 @@ namespace ACE.Mods.Legend.Lib.Auction
                 var total = (int)bidAmount;
                 var bidTime = DateTime.UtcNow;
 
-                foreach (var item in items)
+                foreach (var item in bidItems)
                 {
                     if (total <= 0)
                         break;
 
                     var amount = (item.StackSize > total ? total : item.StackSize) ?? 1;
                     player.RemoveItemForTransfer(item.Guid.Full, out var removedItem, amount);
-                    Log($"REMOVED ITEM STACK SIZE = {removedItem.StackSize}", ModManager.LogLevel.Warn);
                     removedItem.SetProperty(FakeFloat.BidTimestamp, (double)Time.GetUnixTime(bidTime));
                     removedItem.SetProperty(FakeIID.BidOwnerId, player.Guid.Full);
                     removedItem.SetProperty(FakeIID.ListingId, listingId);
 
-                    Log($"TOTAL AUCTION ITEMS COUNT = {AuctionManager.ItemsContainer.Inventory.Count}", ModManager.LogLevel.Warn);
-
                     if (!AuctionManager.TryAddToItemsContainer(removedItem))
                         throw new AuctionFailure($"Failed to place bid, item couldn't be added to the Auction Items Chest");
-
-                    Log($"TOTAL AUCTION ITEMS COUNT = {AuctionManager.ItemsContainer.Inventory.Count}", ModManager.LogLevel.Warn);
 
                     total -= amount;
                     Log($"TOTAL AMOUNT = {total}", ModManager.LogLevel.Warn);
@@ -385,9 +376,16 @@ namespace ACE.Mods.Legend.Lib.Auction
 
         public static void InspectTagItem(this Player player, uint itemId)
         {
-            player.ValidateAuctionTag(itemId, out WorldObject item);
-            player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}");
-            player.AddTagItem(itemId);
+            try
+            {
+                player.ValidateAuctionTag(itemId, out WorldObject item);
+                player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}", ChatMessageType.Broadcast);
+                player.AddTagItem(itemId);
+            } catch(AuctionFailure ex)
+            {
+                player.SendAuctionMessage(ex.Message);
+            }
+
         }
 
         public static void AddTagItem(this Player player, uint itemId)
@@ -407,7 +405,7 @@ namespace ACE.Mods.Legend.Lib.Auction
                 }
             );
 
-            player.SendAuctionMessage($"Added tagged listing item {item.NameWithMaterial}");
+            player.SendAuctionMessage($"Added tagged listing item {item.NameWithMaterial}", ChatMessageType.Broadcast);
         }
 
         public static void ListTags(this Player player)
