@@ -6,9 +6,9 @@ In order to sell items in an auction, you need to create a listing of all your i
 
 - `/ah-tag inspect` This toggles your character into an inspect state, anything you appraise, it will attempt to tag to your auction listing.
 - `/ah-tag list` This shows all of your currently tagged items and their item info.
-- `/ah-tag add <guid>` This adds a world object if you provide its guid.
-- `/ah-tag remove <guid>` This removes a world object from your tagged items list.
-- `/ah-tag clear` This clears all of the world objects from your tagged items list.
+- `/ah-tag add <guid>` This adds an item to your tagged items list if you provide the item's world object guid.
+- `/ah-tag remove <guid>` This removes an item from your tagged items list.
+- `/ah-tag clear` This clears all of items in your tagged items list.
 
 ### Auction Sell
 
