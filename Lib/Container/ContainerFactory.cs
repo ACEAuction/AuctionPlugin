@@ -1,4 +1,5 @@
 ﻿using ACE.Database;
+using ACE.Shared;
 using ACE.Database.Models.Shard;
 using ACE.Entity;
 using ACE.Entity.Enum.Properties;
@@ -193,7 +194,7 @@ namespace ACE.Mods.Legend.Lib.Container
                 inventory = container.Inventory.Values
                     .Where(item =>
                     {
-                        var BankId = item.GetProperty(FakeIID.BankId);
+                        var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
                         return BankId.HasValue && BankId.Value == player.Guid.Full;
                     }).OrderByDescending(item => item.Value).ToList();
 
@@ -258,7 +259,7 @@ namespace ACE.Mods.Legend.Lib.Container
                 inventory = localInstance.Inventory.Values
                     .Where(item =>
                     {
-                        var BankId = item.GetProperty(FakeIID.BankId);
+                        var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
                         return BankId.HasValue && BankId.Value == player.Guid.Full;
                     }).OrderByDescending(item => item.ItemType).ToList();
 
@@ -279,7 +280,7 @@ namespace ACE.Mods.Legend.Lib.Container
 
             foreach (var item in inventory)
             {
-                var BankId = item.GetProperty(FakeIID.BankId);
+                var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
                 // FIXME: only send messages for unknown objects
                 itemsToSend.Add(new GameMessageCreateObject(item));
 

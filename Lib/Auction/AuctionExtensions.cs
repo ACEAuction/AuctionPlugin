@@ -7,7 +7,12 @@ using ACE.Server.Command.Handlers;
 using ACE.Server.Entity.Actions;
 using ACE.Server.Factories;
 using ACE.Server.Network.GameMessages.Messages;
+using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
+using static ACE.Mods.Legend.Lib.Auction.AuctionExtensions;
+using ACE.Entity.Enum.Properties;
+using System.Reflection;
+using ACE.Server.Network;
 
 namespace ACE.Mods.Legend.Lib.Auction
 {
@@ -49,8 +54,6 @@ namespace ACE.Mods.Legend.Lib.Auction
             item.GetProperty(FakeIID.BidOwnerId) ?? 0;
         public static bool GetAuctionTagging(this Player player) =>
             player.GetProperty(FakeBool.IsAuctionTagging) ?? false;
-        public static uint GetBankId(this WorldObject item) =>
-            item.GetProperty(FakeIID.BankId) ?? 0;
 
         public static void SendAuctionMessage(this Player player, string message, ChatMessageType messageType = ChatMessageType.System)
         {
