@@ -90,6 +90,11 @@ namespace ACE.Mods.Legend.Lib.Auction
             if(listing.GetListingStatus() != "active")
                 throw new AuctionFailure($"Failed to place auction bid, the listing for this bid is not currently active");
 
+            var sellerId = listing.GetSellerId();
+
+            if (sellerId > 0 && sellerId == player.Guid.Full) 
+                throw new AuctionFailure($"Failed to place auction bid, you cannot bid on items you are selling");
+
             if (listing.GetHighestBidder() == player.Guid.Full)
                 throw new AuctionFailure($"Failed to place auction bid, you are already the highest bidder");
 
