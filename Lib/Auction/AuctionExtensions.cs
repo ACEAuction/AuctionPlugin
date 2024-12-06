@@ -441,7 +441,7 @@ namespace ACE.Mods.Legend.Lib.Auction
                 throw new ItemTransferFailure($"The item cannot be transferred, item with Id = {itemToTransfer} was not found on your person");
 
             if (item.IsAttunedOrContainsAttuned)
-                throw new ItemTransferFailure($"The item cannot be transferred {item.NameWithMaterial} is attuned or bonded");
+                throw new ItemTransferFailure($"The item cannot be transferred {item.NameWithMaterial} is attuned");
 
             if (player.IsTrading && item.IsBeingTradedOrContainsItemBeingTraded(player.ItemsInTradeWindow))
                 throw new ItemTransferFailure($"The item cannot be transferred {item.NameWithMaterial}, the item is currently being traded");
