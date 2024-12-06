@@ -142,7 +142,6 @@ namespace ACE.Mods.Legend.Lib.Container
             });
             sendActionChain.EnqueueChain();
 
-
             if (!localInstance.IsOpen)
                 localInstance.DoOnOpenMotionChanges();
 
@@ -164,7 +163,6 @@ namespace ACE.Mods.Legend.Lib.Container
 
             localInstance.SendInventory(player);
 
-
             if (!(localInstance is Chest) && !localInstance.ResetMessagePending && localInstance.ResetInterval.HasValue)
             {
                 var actionChain = new ActionChain();
@@ -182,39 +180,6 @@ namespace ACE.Mods.Legend.Lib.Container
             }
 
             return false;
-        }
-
-        private static void SendUpdateForMyInventory(Player player, ACE.Server.WorldObjects.Container container)
-        {
-            List<GameMessage> list = new List<GameMessage>();
-            var itemsToSend = new List<GameMessage>();
-            var inventory = new List<WorldObject>();
-
-            if (container.Name == Constants.BANK_CONTAINER_KEYCODE)
-                inventory = container.Inventory.Values
-                    .Where(item =>
-                    {
-                        var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
-                        return BankId.HasValue && BankId.Value == player.Guid.Full;
-                    }).OrderByDescending(item => item.Value).ToList();
-
-
-
-            foreach (WorldObject value in inventory)
-            {
-                list.Add(new GameMessageUpdateObject(value));
-                if (!(value is ACE.Server.WorldObjects.Container nextedContainer))
-                {
-                    continue;
-                }
-
-                foreach (WorldObject value2 in nextedContainer.Inventory.Values)
-                {
-                    list.Add(new GameMessageUpdateObject(value2));
-                }
-            }
-
-            player.Session.Network.EnqueueSend(list);
         }
 
         public class PatchedGameEventViewContents : GameEventMessage
@@ -259,8 +224,8 @@ namespace ACE.Mods.Legend.Lib.Container
                 inventory = localInstance.Inventory.Values
                     .Where(item =>
                     {
-                        var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
-                        return BankId.HasValue && BankId.Value == player.Guid.Full;
+                        var bankId = item.GetBankId();
+                        return bankId > 0 && bankId == player.Guid.Full;
                     }).OrderByDescending(item => item.ItemType).ToList();
 
             if (localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
@@ -280,7 +245,6 @@ namespace ACE.Mods.Legend.Lib.Container
 
             foreach (var item in inventory)
             {
-                var BankId = item.GetProperty(ACE.Shared.FakeIID.BankId);
                 // FIXME: only send messages for unknown objects
                 itemsToSend.Add(new GameMessageCreateObject(item));
 
@@ -294,6 +258,8 @@ namespace ACE.Mods.Legend.Lib.Container
             }
 
             player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, localInstance, inventory));
+
+            // FIX SUB CONTAINERS WITH
 
             // send sub-containersC
             //foreach (var container in inventory.Where(i => i is ACE.Server.WorldObjects.Container))
