@@ -17,13 +17,16 @@ public static class ContainerPatches
     [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.ClearUnmanagedInventory), new Type[] { typeof(bool) })]
     public static bool PreClearUnmanagedInventory(bool forceSave, ref ACE.Server.WorldObjects.Container __instance, ref bool __result)
     {
+        var localInstance = __instance;
+
+        /// Custom containers should never clear their inventory
         if
         (
-            __instance is Storage ||
-            __instance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
-            __instance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE ||
-            __instance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
-            __instance.Name == Constants.BANK_CONTAINER_KEYCODE
+            localInstance is Storage ||
+            localInstance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
+            localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE ||
+            localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
+            localInstance.Name == Constants.BANK_CONTAINER_KEYCODE
         )
         {
             __result = false; // Do not clear storage, ever.
@@ -31,17 +34,17 @@ public static class ContainerPatches
         }
 
         var success = true;
-        var itemGuids = __instance.Inventory.Where(i => i.Value.GeneratorId == null).Select(i => i.Key).ToList();
+        var itemGuids = localInstance.Inventory.Where(i => i.Value.GeneratorId == null).Select(i => i.Key).ToList();
         foreach (var itemGuid in itemGuids)
         {
-            if (!__instance.TryRemoveFromInventory(itemGuid, out var item, forceSave))
+            if (!localInstance.TryRemoveFromInventory(itemGuid, out var item, forceSave))
                 success = false;
 
             if (success)
                 item.Destroy();
         }
         if (forceSave)
-            __instance.SaveBiotaToDatabase();
+            localInstance.SaveBiotaToDatabase();
 
         __result = success;
         return false;
@@ -53,7 +56,7 @@ public static class ContainerPatches
     {
         var localInstance = __instance;
 
-        if (!IsCustomContainer(localInstance))
+        if (!localInstance.IsCustomContainer())
             return true;
 
         player.LastOpenedContainerId = localInstance.Guid;
@@ -139,7 +142,7 @@ public static class ContainerPatches
     public static bool PreSendInventory(Player player, ref ACE.Server.WorldObjects.Container __instance)
     {
         var localInstance = __instance;
-        if (!IsCustomContainer(localInstance))
+        if (!localInstance.IsCustomContainer())
             return true;
 
         // send createobject for all objects in this container's inventory to player
@@ -202,7 +205,7 @@ public static class ContainerPatches
     public static bool PreCheckUseRequirements(WorldObject activator, ref Chest __instance, ref ActivationResult __result)
     {
         var localInstance = __instance;
-        if (!IsCustomContainer(localInstance))
+        if (!localInstance.IsCustomContainer())
             return true;
 
         if (!(activator is Player player))
@@ -240,7 +243,7 @@ public static class ContainerPatches
     public static bool PreFinishClose(Player player, ref ACE.Server.WorldObjects.Container __instance)
     {
         var localInstance = __instance;
-        if (!IsCustomContainer(localInstance))
+        if (!localInstance.IsCustomContainer())
             return true;
 
         localInstance.IsOpen = false;
@@ -277,7 +280,7 @@ public static class ContainerPatches
         var lastOpenedContainer = (ACE.Server.WorldObjects.Container)localInstance.FindObject(localInstance.LastOpenedContainerId, Player.SearchLocations.Everywhere, out _, out _, out _);
 
         if (wo == null)
-            if (lastOpenedContainer != null && IsCustomContainer(lastOpenedContainer) && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(objectGuid), out var item))
+            if (lastOpenedContainer != null && lastOpenedContainer.IsCustomContainer() && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(objectGuid), out var item))
                 wo = item;
 
         if (wo == null)
@@ -406,7 +409,7 @@ public static class ContainerPatches
         containerRootOwner = containerRootOwner;
 
 
-        if (item == null && lastOpenedContainer != null && IsCustomContainer(lastOpenedContainer) && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(itemGuid), out var lastOpenedContainerItem))
+        if (item == null && lastOpenedContainer != null && lastOpenedContainer.IsCustomContainer() && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(itemGuid), out var lastOpenedContainerItem))
         {
             item = lastOpenedContainerItem;
             containerRootOwner = localInstance;
@@ -446,7 +449,7 @@ public static class ContainerPatches
             return false;
         }
 
-        if (container != null && (IsCustomContainer(container) || (itemRootOwner != null && IsCustomContainer(itemRootOwner))))
+        if (container != null && (container.IsCustomContainer() || (itemRootOwner != null && itemRootOwner.IsCustomContainer())))
         {
             // set the bank id here any time a player attempts to remove or add an item to the bank. 
             if (container == BankManager.BankContainer || itemRootOwner == BankManager.BankContainer)
@@ -553,7 +556,7 @@ public static class ContainerPatches
 
         if (containerRootOwner == null) // container is on landscape, so you must have it open
         {
-            if (!container.IsOpen || (!IsCustomContainer(container)))
+            if (!container.IsOpen || (!container.IsCustomContainer()))
             {
                 localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid, WeenieError.TheContainerIsClosed));
 
@@ -564,15 +567,5 @@ public static class ContainerPatches
 
         __result = true;
         return false;
-    }
-
-
-
-
-    private static bool IsCustomContainer(ACE.Server.WorldObjects.Container localInstance)
-    {
-        return localInstance.Name == Constants.BANK_CONTAINER_KEYCODE ||
-            localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
-            localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
     }
 }
