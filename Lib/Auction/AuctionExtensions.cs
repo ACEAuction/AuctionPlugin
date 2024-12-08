@@ -218,7 +218,7 @@ public static class AuctionExtensions
     private static void NotifyPlayerOfSuccess(Player player, WorldObject listing, uint bidAmount)
     {
         player.SendAuctionMessage(
-            $"Successfully created an auction bid on listing with Id = {listing.GetListingId()}, Seller = {listing.GetSellerName()}, BidAmount = {bidAmount}",
+            $"Successfully created an auction bid on listing with Id = {listing.Guid.Full}, Seller = {listing.GetSellerName()}, BidAmount = {bidAmount}",
             ChatMessageType.Broadcast
         );
     }
