@@ -13,7 +13,11 @@ namespace ACE.Mods.Legend.Lib.Auction;
 
 public static class AuctionManager
 {
-    private readonly static object AuctionLock = new object();
+    public readonly static object AuctionItemsLock = new object();
+
+    public readonly static object AuctionListingsLock = new object();
+
+    private readonly static object AuctionTickLock = new object();
 
     private static double NextTickTime = 0;
 
@@ -56,7 +60,7 @@ public static class AuctionManager
 
         NextTickTime = currentUnixTime + TickTime;
 
-        lock (AuctionLock)
+        lock (AuctionTickLock)
         {
             try
             {
@@ -186,10 +190,10 @@ public static class AuctionManager
 
     private static void TransferItemToBank(WorldObject item, List<WorldObject> addedItems, string itemType)
     {
-        if (!TryRemoveFromItemsContainer(item))
+        if (!ItemsContainer.TryRemoveFromInventory(item.Guid))
             throw new AuctionFailure($"Failed to remove expired auction {itemType} item with Id = {item.Guid.Full} from Auction Items Chest");
 
-        if (!BankManager.TryAddToBankContainer(item))
+        if (!BankManager.BankContainer.TryAddToInventory(item))
             throw new AuctionFailure($"Failed to add completed auction {itemType} item with Id = {item.Guid.Full} to Bankbox");
 
         Log($"Removed expired {itemType} item {item.Name}", ModManager.LogLevel.Warn);
@@ -224,10 +228,10 @@ public static class AuctionManager
                 item.SetProperty(FakeIID.ListingId, listingId);
             }
 
-            if (!BankManager.TryRemoveFromBankContainer(item))
+            if (!BankManager.BankContainer.TryRemoveFromInventory(item.Guid))
                 throw new AuctionFailure($"Failed to remove failed auction {(isListing ? "listing" : "bid")} item with Id = {item.Guid.Full} from Bankbox");
 
-            if (!TryAddToItemsContainer(item))
+            if (!ItemsContainer.TryAddToInventory(item))
                 throw new AuctionFailure($"Failed to add failed auction {(isListing ? "listing" : "bid")} item with Id = {item.Guid.Full} to Auction Items Chest");
 
             Log($"Restored failed {(isListing ? "listing" : "bid")} item {item.Name}", ModManager.LogLevel.Warn);
@@ -252,29 +256,6 @@ public static class AuctionManager
             _itemsContainer = new WeakReference<Chest>(chest);
         }
         return chest;
-    }
-
-    public static bool TryAddToListingsContainer(WorldObject item)
-    {
-        lock (AuctionLock)
-        {
-            return ListingsContainer.TryAddToInventory(item);
-        }
-    }
-
-    public static bool TryAddToItemsContainer(WorldObject item)
-    {
-        lock (AuctionLock)
-        {
-            return ItemsContainer.TryAddToInventory(item);
-        }
-    }
-    public static bool TryRemoveFromItemsContainer(WorldObject item)
-    {
-        lock (AuctionLock)
-        {
-            return ItemsContainer.TryRemoveFromInventory(item.Guid);
-        }
     }
 
     internal static WorldObject? GetListingById(uint listingId)

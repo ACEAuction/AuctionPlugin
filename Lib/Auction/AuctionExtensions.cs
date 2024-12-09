@@ -161,8 +161,8 @@ public static class AuctionExtensions
         foreach (var item in AuctionManager.ItemsContainer.Inventory.Values
                      .Where(item => item.GetBidOwnerId() > 0 && item.GetBidOwnerId() == listing.GetHighestBidder()))
         {
-            if (!AuctionManager.TryRemoveFromItemsContainer(item) ||
-                !BankManager.TryAddToBankContainer(item))
+            if (!AuctionManager.ItemsContainer.TryRemoveFromInventory(item.Guid) ||
+                !BankManager.BankContainer.TryAddToInventory(item))
                 throw new AuctionFailure($"Failed to process previous bid items for listing {listing.Guid.Full}");
 
             ResetBidItemProperties(item, previousBidderId);
@@ -190,7 +190,7 @@ public static class AuctionExtensions
             player.RemoveItemForTransfer(item.Guid.Full, out var removedItem, amount);
             ConfigureBidItem(removedItem, player.Guid.Full, listing.GetListingId(), bidTime);
 
-            if (!AuctionManager.TryAddToItemsContainer(removedItem))
+            if (!AuctionManager.ItemsContainer.TryAddToInventory(removedItem))
                 throw new AuctionFailure($"Failed to add bid item to Auction Items Chest");
 
             remainingAmount -= amount;
@@ -252,8 +252,8 @@ public static class AuctionExtensions
             item.SetProperty(FakeIID.BidOwnerId, previousBidderId);
             item.SetProperty(FakeIID.ListingId, listingId);
 
-            if (!BankManager.TryRemoveFromBankContainer(item) ||
-                !AuctionManager.TryAddToItemsContainer(item))
+            if (!BankManager.BankContainer.TryRemoveFromInventory(item.Guid) ||
+                !AuctionManager.ItemsContainer.TryAddToInventory(item))
                 throw new AuctionFailure("Failed to restore previous bid items");
         }
     }
@@ -265,8 +265,8 @@ public static class AuctionExtensions
             item.RemoveProperty(FakeIID.BidOwnerId);
             item.RemoveProperty(FakeIID.ListingId);
 
-            if (!AuctionManager.TryRemoveFromItemsContainer(item) ||
-                (!player.TryCreateInInventoryWithNetworking(item) && !BankManager.TryAddToBankContainer(item)))
+            if (!AuctionManager.ItemsContainer.TryRemoveFromInventory(item.Guid) ||
+                (!player.TryCreateInInventoryWithNetworking(item) || !BankManager.BankContainer.TryAddToInventory(item)))
                 throw new AuctionFailure("Failed to restore new bid items to the player or bank");
         }
     }
@@ -359,7 +359,7 @@ public static class AuctionExtensions
     {
         foreach (var item in state.RemovedItems)
         {
-            if (item == null || !AuctionManager.TryAddToItemsContainer(item))
+            if (item == null || !AuctionManager.ItemsContainer.TryAddToInventory(item))
             {
                 throw new AuctionFailure($"Failed to transfer listing item {item?.Name} to the auction container.");
             }
@@ -368,7 +368,7 @@ public static class AuctionExtensions
 
     private static void AddListingToAuctionContainer(AuctionSellState state)
     {
-        if (!AuctionManager.TryAddToListingsContainer(state.ListingParchment))
+        if (!AuctionManager.ListingsContainer.TryAddToInventory(state.ListingParchment))
         {
             throw new AuctionFailure($"Failed to transfer listing parchment {state.ListingParchment.Name} to the auction container.");
         }
@@ -404,12 +404,12 @@ public static class AuctionExtensions
                 actionChain.AddAction(player, () =>
                 {
                     player.SendAuctionMessage($"Attempting to return listing item {removedItem.NameWithMaterial}");
-                    AuctionManager.TryRemoveFromItemsContainer(removedItem);
+                    AuctionManager.ItemsContainer.TryRemoveFromInventory(removedItem.Guid);
 
                     if (!player.TryCreateInInventoryWithNetworking(removedItem))
                     {
                         player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it to the bank.");
-                        BankManager.TryAddToBankContainer(removedItem);
+                        BankManager.BankContainer.TryAddToInventory(removedItem);
                     }
 
                     player.EnqueueBroadcast(new GameMessageSound(player.Guid, Sound.ReceiveItem));

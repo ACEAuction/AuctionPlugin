@@ -568,4 +568,44 @@ public static class ContainerPatches
         __result = true;
         return false;
     }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.TryAddToInventory), new Type[] { typeof(WorldObject), typeof(int), typeof(bool), typeof(bool) })]
+    public static bool PreTryAddToInventory(WorldObject worldObject, int placementPosition, bool limitToMainPackOnly, bool burdenCheck, ref ACE.Server.WorldObjects.Container __instance, ref bool __result)
+    {
+        var localInstance = __instance;
+        if (!localInstance.IsCustomContainer())
+            return true;
+
+        if (worldObject == null)
+        {
+            __result = false;
+            return false;
+        }
+
+        object containerLock = localInstance.GetCustomContainerLock();
+
+        lock(containerLock)
+        {
+            __result = localInstance.TryAddToInventory(worldObject, out _, placementPosition, limitToMainPackOnly, burdenCheck);
+            return false;
+        }
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.TryRemoveFromInventory), new Type[] { typeof(ObjectGuid), typeof(bool) })]
+    public static bool PreTryRemoveFromInventory(ObjectGuid objectGuid, bool forceSave, ref ACE.Server.WorldObjects.Container __instance, ref bool __result)
+    {
+        var localInstance = __instance;
+        if (!localInstance.IsCustomContainer())
+            return true;
+
+        object containerLock = localInstance.GetCustomContainerLock();
+
+        lock (containerLock)
+        {
+            __result = localInstance.TryRemoveFromInventory(objectGuid, out _, forceSave);
+            return false;
+        }
+    }
 }

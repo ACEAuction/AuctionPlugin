@@ -6,7 +6,7 @@ namespace ACE.Mods.Legend.Lib.Bank;
 
 public static class BankManager
 {
-    private readonly static object BankLock = new object();
+    public readonly static object BankLock = new object();
 
     private static double NextTickTime = 0;
 
@@ -44,21 +44,6 @@ public static class BankManager
             _BankContainer = new WeakReference<Chest>(chest);
         }
         return chest;
-    }
-
-    public static bool TryAddToBankContainer(WorldObject item)
-    {
-        lock (BankLock)
-        {
-            return BankContainer.TryAddToInventory(item);
-        }
-    }
-    public static bool TryRemoveFromBankContainer(WorldObject item)
-    {
-        lock (BankLock)
-        {
-            return BankContainer.TryRemoveFromInventory(item.Guid);
-        }
     }
 }
 
