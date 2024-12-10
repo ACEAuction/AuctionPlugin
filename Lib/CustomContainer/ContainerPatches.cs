@@ -1,4 +1,5 @@
 ﻿using ACE.Entity;
+using ACE.Entity.Enum.Properties;
 using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Bank;
 using ACE.Mods.Legend.Lib.Common;
@@ -7,15 +8,16 @@ using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
+using static ACE.Server.WorldObjects.Player;
 
-namespace ACE.Mods.Legend.Lib.Container;
+namespace ACE.Mods.Legend.Lib.CustomContainer;
 
 [HarmonyPatchCategory(nameof(ContainerPatches))]
 public static class ContainerPatches
 {
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.ClearUnmanagedInventory), new Type[] { typeof(bool) })]
-    public static bool PreClearUnmanagedInventory(bool forceSave, ref ACE.Server.WorldObjects.Container __instance, ref bool __result)
+    [HarmonyPatch(typeof(Container), nameof(Container.ClearUnmanagedInventory), new Type[] { typeof(bool) })]
+    public static bool PreClearUnmanagedInventory(bool forceSave, ref Container __instance, ref bool __result)
     {
         var localInstance = __instance;
 
@@ -51,8 +53,8 @@ public static class ContainerPatches
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.Open), new Type[] { typeof(Player) })]
-    public static bool PreOpen(Player player, ref ACE.Server.WorldObjects.Container __instance)
+    [HarmonyPatch(typeof(Container), nameof(Container.Open), new Type[] { typeof(Player) })]
+    public static bool PreOpen(Player player, ref Container __instance)
     {
         var localInstance = __instance;
 
@@ -113,7 +115,7 @@ public static class ContainerPatches
 
     public class PatchedGameEventViewContents : GameEventMessage
     {
-        public PatchedGameEventViewContents(Session session, ACE.Server.WorldObjects.Container container, List<WorldObject> inventory)
+        public PatchedGameEventViewContents(Session session, Container container, List<WorldObject> inventory)
             : base(GameEventType.ViewContents, GameMessageGroup.UIQueue, session)
         {
             base.Writer.Write(container.Guid.Full);
@@ -138,8 +140,8 @@ public static class ContainerPatches
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), "SendInventory", new Type[] { typeof(Player) })]
-    public static bool PreSendInventory(Player player, ref ACE.Server.WorldObjects.Container __instance)
+    [HarmonyPatch(typeof(Container), "SendInventory", new Type[] { typeof(Player) })]
+    public static bool PreSendInventory(Player player, ref Container __instance)
     {
         var localInstance = __instance;
         if (!localInstance.IsCustomContainer())
@@ -154,7 +156,7 @@ public static class ContainerPatches
                 .Where(item =>
                 {
                     var bankId = item.GetBankId();
-                    return bankId > 0 && bankId == player.Guid.Full;
+                    return bankId > 0 && bankId == player.Account.AccountId;
                 }).OrderByDescending(item => item.ItemType).ToList();
 
         if (localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
@@ -171,13 +173,12 @@ public static class ContainerPatches
                     return false;
                 }).OrderByDescending(item => item.Value).ToList();
 
-
         foreach (var item in inventory)
         {
             // FIXME: only send messages for unknown objects
             itemsToSend.Add(new GameMessageCreateObject(item));
 
-            if (item is ACE.Server.WorldObjects.Container container)
+            if (item is Container container)
             {
                 foreach (var containerItem in container.Inventory.Values)
                 {
@@ -191,8 +192,8 @@ public static class ContainerPatches
         // FIX SUB CONTAINERS WITH
 
         // send sub-containersC
-        //foreach (var container in inventory.Where(i => i is ACE.Server.WorldObjects.Container))
-        //player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, (ACE.Server.WorldObjects.Container)container), new List<WorldObject>());
+        //foreach (var container in inventory.Where(i => i is Container))
+        //player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, (Container)container), new List<WorldObject>());
 
         player.Session.Network.EnqueueSend(itemsToSend);
 
@@ -239,8 +240,8 @@ public static class ContainerPatches
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.FinishClose), new Type[] { typeof(Player) })]
-    public static bool PreFinishClose(Player player, ref ACE.Server.WorldObjects.Container __instance)
+    [HarmonyPatch(typeof(Container), nameof(Container.FinishClose), new Type[] { typeof(Player) })]
+    public static bool PreFinishClose(Player player, ref Container __instance)
     {
         var localInstance = __instance;
         if (!localInstance.IsCustomContainer())
@@ -277,7 +278,7 @@ public static class ContainerPatches
 
         var wo = localInstance.FindObject(objectGuid, Player.SearchLocations.Everywhere, out _, out _, out _);
 
-        var lastOpenedContainer = (ACE.Server.WorldObjects.Container)localInstance.FindObject(localInstance.LastOpenedContainerId, Player.SearchLocations.Everywhere, out _, out _, out _);
+        var lastOpenedContainer = (Container)localInstance.FindObject(localInstance.LastOpenedContainerId, Player.SearchLocations.Everywhere, out _, out _, out _);
 
         if (wo == null)
             if (lastOpenedContainer != null && lastOpenedContainer.IsCustomContainer() && lastOpenedContainer.Inventory.TryGetValue(new ObjectGuid(objectGuid), out var item))
@@ -341,9 +342,8 @@ public static class ContainerPatches
         localInstance.FindObject(mergeFromGuid, Player.SearchLocations.LocationsICanMove, out _, out var sourceStackRootOwner, out _);
         localInstance.FindObject(mergeToGuid, Player.SearchLocations.LocationsICanMove, out _, out var targetStackRootOwner, out _);
 
-        if (AuctionManager.ItemsContainer == sourceStackRootOwner || AuctionManager.ItemsContainer == targetStackRootOwner)
+        if (sourceStackRootOwner.IsAuctionItemsContainer() || targetStackRootOwner.IsAuctionItemsContainer())
         {
-
             localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, mergeFromGuid));
             return false;
         }
@@ -354,15 +354,15 @@ public static class ContainerPatches
 
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(Player), "HandleActionPutItemInContainer_Verify", new Type[] { typeof(uint), typeof(uint), typeof(int), typeof(ACE.Server.WorldObjects.Container), typeof(WorldObject), typeof(ACE.Server.WorldObjects.Container), typeof(ACE.Server.WorldObjects.Container), typeof(bool) }, new ArgumentType[] { ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out })]
+    [HarmonyPatch(typeof(Player), "HandleActionPutItemInContainer_Verify", new Type[] { typeof(uint), typeof(uint), typeof(int), typeof(Container), typeof(WorldObject), typeof(Container), typeof(Container), typeof(bool) }, new ArgumentType[] { ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out, ArgumentType.Out })]
     public static bool PreHandleActionPutItemInContainer_Verify(
             uint itemGuid,
             uint containerGuid,
             int placement,
-            ref ACE.Server.WorldObjects.Container itemRootOwner,
+            ref Container itemRootOwner,
             ref WorldObject item,
-            ref ACE.Server.WorldObjects.Container containerRootOwner,
-            ref ACE.Server.WorldObjects.Container container,
+            ref Container containerRootOwner,
+            ref Container container,
             ref bool itemWasEquipped,
             ref Player __instance,
             ref bool __result
@@ -403,8 +403,8 @@ public static class ContainerPatches
         //OnPutItemInContainer(itemGuid, containerGuid, placement);
 
         item = localInstance.FindObject(itemGuid, Player.SearchLocations.LocationsICanMove, out _, out itemRootOwner, out itemWasEquipped);
-        container = localInstance.FindObject(containerGuid, Player.SearchLocations.MyInventory | Player.SearchLocations.Landblock | Player.SearchLocations.LastUsedContainer, out _, out containerRootOwner, out _) as ACE.Server.WorldObjects.Container;
-        var lastOpenedContainer = (ACE.Server.WorldObjects.Container)localInstance.FindObject(localInstance.LastOpenedContainerId, Player.SearchLocations.Everywhere, out _, out _, out _);
+        container = localInstance.FindObject(containerGuid, Player.SearchLocations.MyInventory | Player.SearchLocations.Landblock | Player.SearchLocations.LastUsedContainer, out _, out containerRootOwner, out _) as Container;
+        var lastOpenedContainer = (Container)localInstance.FindObject(localInstance.LastOpenedContainerId, Player.SearchLocations.Everywhere, out _, out _, out _);
 
         containerRootOwner = containerRootOwner;
 
@@ -451,12 +451,9 @@ public static class ContainerPatches
 
         if (container != null && (container.IsCustomContainer() || (itemRootOwner != null && itemRootOwner.IsCustomContainer())))
         {
-            // set the bank id here any time a player attempts to remove or add an item to the bank. 
-            if (container == BankManager.BankContainer || itemRootOwner == BankManager.BankContainer)
-                item.SetProperty(FakeIID.BankId, localInstance.Guid.Full);
 
             // prevent add/remove from auction house items chest 
-            if (container == AuctionManager.ItemsContainer || itemRootOwner == AuctionManager.ItemsContainer)
+            if (container.IsAuctionItemsContainer() || itemRootOwner.IsAuctionItemsContainer())
             {
                 localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid));
                 __result = false;
@@ -541,7 +538,7 @@ public static class ContainerPatches
             }
         }
 
-        if (item is ACE.Server.WorldObjects.Container)
+        if (item is Container)
         {
             // Blocking all attempts to put containers in things that aren't Players and Storage. This may not be retail, but at this time appears to be best catch all solution to Quest stamp bypass issue.
             if (container is not Player && container is not Storage)
@@ -570,18 +567,25 @@ public static class ContainerPatches
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.TryAddToInventory), new Type[] { typeof(WorldObject), typeof(int), typeof(bool), typeof(bool) })]
-    public static bool PreTryAddToInventory(WorldObject worldObject, int placementPosition, bool limitToMainPackOnly, bool burdenCheck, ref ACE.Server.WorldObjects.Container __instance, ref bool __result)
+    [HarmonyPatch(typeof(Container), nameof(Container.TryAddToInventory), new Type[] { typeof(WorldObject), typeof(int), typeof(bool), typeof(bool) })]
+    public static bool PreTryAddToInventory(WorldObject worldObject, int placementPosition, bool limitToMainPackOnly, bool burdenCheck, ref Container __instance, ref bool __result)
     {
         var localInstance = __instance;
         if (!localInstance.IsCustomContainer())
             return true;
+
 
         if (worldObject == null)
         {
             __result = false;
             return false;
         }
+
+        var isBank = localInstance.IsBank();
+
+        // use a single bank container instance 
+        if (isBank)
+            localInstance = BankManager.BankContainer;
 
         object containerLock = localInstance.GetCustomContainerLock();
 
@@ -593,19 +597,288 @@ public static class ContainerPatches
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(ACE.Server.WorldObjects.Container), nameof(ACE.Server.WorldObjects.Container.TryRemoveFromInventory), new Type[] { typeof(ObjectGuid), typeof(bool) })]
-    public static bool PreTryRemoveFromInventory(ObjectGuid objectGuid, bool forceSave, ref ACE.Server.WorldObjects.Container __instance, ref bool __result)
+    [HarmonyPatch(typeof(Container), nameof(Container.TryRemoveFromInventory), new Type[] { typeof(ObjectGuid), typeof(bool) })]
+    public static bool PreTryRemoveFromInventory(ObjectGuid objectGuid, bool forceSave, ref Container __instance, ref bool __result)
     {
         var localInstance = __instance;
         if (!localInstance.IsCustomContainer())
             return true;
 
+        var isBank = localInstance.IsBank();
+
         object containerLock = localInstance.GetCustomContainerLock();
+
+        if (isBank)
+            localInstance = BankManager.BankContainer;
 
         lock (containerLock)
         {
-            __result = localInstance.TryRemoveFromInventory(objectGuid, out _, forceSave);
+            __result = localInstance.TryRemoveFromInventory(objectGuid, out WorldObject item, forceSave);
+            if (__result)
+            {
+                // set the bank id here any time a player attempts to remove or add an item to the bank. 
+                if (isBank)
+                {
+                    item.RemoveProperty(FakeIID.BankId);
+                    item.SaveBiotaToDatabase();
+                }
+            }
+
             return false;
         }
+    }
+
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Container), nameof(Container.TryAddToInventory), new Type[] { typeof(WorldObject), typeof(Container), typeof(int), typeof(bool), typeof(bool) }, new ArgumentType[] { ArgumentType.Normal, ArgumentType.Out, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal })]
+    public static bool PreTryAddToInventory(WorldObject worldObject, Container container, int placementPosition, bool limitToMainPackOnly, bool burdenCheck, ref Container __instance, ref bool __result)
+    {
+        var localInstance = __instance;
+        if (!localInstance.IsCustomContainer())
+            return true;
+
+        IList<WorldObject> containerItems;
+
+        if (worldObject.UseBackpackSlot)
+        {
+            containerItems = localInstance.Inventory.Values.Where(i => i.UseBackpackSlot).ToList();
+
+            var containrCapacity = localInstance.GetContainerCapacity();
+            if (containrCapacity <= containerItems.Count)
+            {
+                container = null;
+                __result = false;
+
+                return false;
+            }
+        }
+        else
+        {
+            containerItems = localInstance.Inventory.Values.Where(i => !i.UseBackpackSlot).ToList();
+
+            var itemsCapacity = localInstance.GetItemsCapacity();
+            if (itemsCapacity <= containerItems.Count)
+            {
+                // Can we add this to any side pack?
+                if (!limitToMainPackOnly)
+                {
+                    var containers = localInstance.Inventory.Values.OfType<Container>().ToList();
+                    containers.Sort((a, b) => (a.Placement ?? 0).CompareTo(b.Placement ?? 0));
+
+                    foreach (var sidePack in containers)
+                    {
+                        if (sidePack.TryAddToInventory(worldObject, out container, placementPosition, true))
+                        {
+                            localInstance.EncumbranceVal += (worldObject.EncumbranceVal ?? 0);
+                            localInstance.Value += (worldObject.Value ?? 0);
+
+                            __result = true;
+                            return false;
+                        }
+                    }
+                }
+
+                container = null;
+                __result = false;
+
+                return false;
+            }
+        }
+
+        if (localInstance.Inventory.ContainsKey(worldObject.Guid))
+        {
+            container = null;
+            __result = false;
+            return false;
+        }
+
+        worldObject.Location = null;
+        worldObject.Placement = ACE.Entity.Enum.Placement.Resting;
+
+        worldObject.OwnerId = localInstance.Guid.Full;
+        worldObject.ContainerId = localInstance.Guid.Full;
+        worldObject.Container = localInstance;
+        worldObject.PlacementPosition = placementPosition; // Server only variable that we use to remember/restore the order in which items exist in a container
+
+        // Move all the existing items PlacementPosition over.
+        if (!worldObject.UseBackpackSlot)
+            containerItems.Where(i => !i.UseBackpackSlot && i.PlacementPosition >= placementPosition).ToList().ForEach(i => i.PlacementPosition++);
+        else
+            containerItems.Where(i => i.UseBackpackSlot && i.PlacementPosition >= placementPosition).ToList().ForEach(i => i.PlacementPosition++);
+
+        localInstance.Inventory.Add(worldObject.Guid, worldObject);
+
+        localInstance.EncumbranceVal += (worldObject.EncumbranceVal ?? 0);
+        localInstance.Value += (worldObject.Value ?? 0);
+
+        container = localInstance;
+
+        localInstance.OnAddItem();
+
+        __result = true;
+        return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Chest), "SetEphemeralValues")]
+    public static bool PreSetEphemeralValues(ref Chest __instance)
+    {
+        var localInstance = __instance;
+        if (!localInstance.IsCustomContainer())
+            return true;
+
+        localInstance.ActivationResponse |= ActivationResponse.Use;   // todo: fix broken data
+
+        localInstance.CurrentMotionState = Chest.motionClosed;              // do any chests default to open?
+
+        if (localInstance.IsLocked)
+            localInstance.DefaultLocked = true;
+
+        if (localInstance.DefaultLocked) // ignore regen interval, only regen on relock
+            localInstance.NextGeneratorRegenerationTime = double.MaxValue;
+
+        return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Container), nameof(Container.GetFreeInventorySlots), new Type[] { typeof(bool) })]
+    public static bool PreGetFreeInventorySlots(bool includeSidePacks, ref Container __instance, ref int __result)
+    {
+        var localInstance = __instance;
+        if (!localInstance.IsCustomContainer())
+            return true;
+
+        int freeSlots = localInstance.GetItemsCapacity() - localInstance.CountPackItems();
+
+        if (includeSidePacks)
+        {
+            foreach (var sidePack in localInstance.Inventory.Values.OfType<Container>())
+                freeSlots += (sidePack.ItemCapacity ?? 0) - sidePack.CountPackItems();
+        }
+
+        __result = freeSlots;
+        return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Container), nameof(Container.GetFreeContainerSlots))]
+    public static bool PreGetFreeContainerSlots(ref Container __instance, ref int __result)
+    {
+        var localInstance = __instance;
+        if (!localInstance.IsCustomContainer())
+            return true;
+
+        __result = localInstance.GetContainerCapacity() - localInstance.CountContainers();
+        return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Player), "DoHandleActionPutItemInContainer", new Type[] { typeof(WorldObject), typeof(Container), typeof(bool), typeof(Container), typeof(Container), typeof(int) })]
+    public static bool PreDoHandleActionPutItemInContainer(WorldObject item, Container itemRootOwner, bool itemWasEquipped, Container container, Container containerRootOwner, int placement, ref Player __instance, ref bool __result)
+    {
+        var localInstance = __instance;
+
+        //Console.WriteLine($"-> DoHandleActionPutItemInContainer({item.Name}, {itemRootOwner?.Name}, {itemWasEquipped}, {container?.Name}, {containerRootOwner?.Name}, {placement})");
+
+        Position prevLocation = null;
+        Landblock prevLandblock = null;
+
+        var prevContainer = item.Container;
+
+
+        localInstance.OnPutItemInContainer(item.Guid.Full, container.Guid.Full, placement);
+
+        if (item.CurrentLandblock != null) // Movement is an item pickup off the landblock
+        {
+            prevLocation = new Position(item.Location);
+            prevLandblock = item.CurrentLandblock;
+
+            item.CurrentLandblock.RemoveWorldObject(item.Guid, false, true);
+            item.Location = null;
+        }
+        else if (itemWasEquipped) // Movement is an equipped item to a container on the landblock
+        {
+            var dequipObjectAction = containerRootOwner == localInstance ? DequipObjectAction.DequipToPack : DequipObjectAction.DequipToOffPlayerContainer;
+
+            if (!localInstance.TryDequipObjectWithNetworking(item.Guid, out _, dequipObjectAction))
+            {
+                localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, "TryDequipObjectWithNetworking failed!")); // Custom error message
+                localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, item.Guid.Full));
+                __result = false;
+                return false;
+            }
+        }
+        else // Movement is within the same pack or between packs in a container on the landblock
+        {
+            var itemRootCreature = itemRootOwner as Creature;
+
+            if (itemRootOwner != null && !itemRootOwner.TryRemoveFromInventory(item.Guid) && (itemRootCreature == null || !itemRootCreature.TryDequipObject(item.Guid, out _, out _)))
+            {
+                localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, "TryRemoveFromInventory failed!")); // Custom error message
+                localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, item.Guid.Full));
+            }
+
+            if (itemRootOwner == localInstance && containerRootOwner != localInstance)
+            {
+                // We must update the database with the latest ContainerId and WielderId properties.
+                // If we don't, the player can drop the item, log out, and log back in. If the landblock hasn't queued a database save in that time,
+                // the player will end up loading with this object in their inventory even though the landblock is the true owner. This is because
+                // when we load player inventory, the database still has the record that shows this player as the ContainerId for the item.
+                localInstance.DeepSave(item);
+            }
+        }
+
+        var burdenCheck = itemRootOwner != localInstance && containerRootOwner == localInstance;
+
+        if (!container.TryAddToInventory(item, placement, true, burdenCheck))
+        {
+            localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.  Session, $"Unable to put {item.Name} into container")); // Custom error message
+            localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, item.Guid.Full));
+
+            if (prevLocation != null)
+            {
+                var landblockReturn = new ActionChain();
+
+                landblockReturn.AddDelaySeconds(1);
+                landblockReturn.AddAction(prevLandblock, () => localInstance.RemoveTrackedObject(item, false));
+                landblockReturn.AddDelaySeconds(1);
+                landblockReturn.AddAction(prevLandblock, () =>
+                {
+                    item.Location = new Position(prevLocation);
+                    LandblockManager.AddObject(item);
+                });
+                landblockReturn.EnqueueChain();
+            }
+            else if (itemRootOwner == null || !itemRootOwner.TryAddToInventory(item))
+            {
+                ModManager.Log($"{localInstance.Name}.DoHandleActionPutItemInContainer({item.Name} ({item.Guid}), {itemRootOwner?.Name} ({itemRootOwner?.Guid}), {itemWasEquipped}, {container.Name} ({container.Guid}), {containerRootOwner?.Name} ({containerRootOwner?.Guid}), {placement}) - removed item from original location, failed to add to new container, failed to re-add to original location", ModManager.LogLevel.Error);
+            }
+
+            __result = false;
+            return false;
+        }
+
+        if (container != containerRootOwner && containerRootOwner != null)
+        {
+            containerRootOwner.EncumbranceVal += (item.EncumbranceVal ?? 0);
+            containerRootOwner.Value += (item.Value ?? 0);
+        }
+
+        var isBank = container.IsBank();
+
+        if (isBank)
+            item.SetProperty(FakeIID.BankId, localInstance.Account.AccountId);
+
+        // when moving from a non-stuck container to a different container,
+        // the database must be synced immediately
+        if (isBank || prevContainer != null && !prevContainer.Stuck && container != prevContainer)
+            item.SaveBiotaToDatabase();
+
+        localInstance.Session.Network.EnqueueSend(
+            new GameMessagePublicUpdateInstanceID(item, PropertyInstanceId.Container, container.Guid),
+            new GameEventItemServerSaysContainId(localInstance.Session, item, container));
+
+        __result = true;
+        return false;
     }
 }

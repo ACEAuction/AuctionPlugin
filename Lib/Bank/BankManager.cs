@@ -1,5 +1,5 @@
 ﻿using ACE.Mods.Legend.Lib.Common;
-using ACE.Mods.Legend.Lib.Container;
+using ACE.Mods.Legend.Lib.CustomContainer;
 using ACE.Server.Managers;
 
 namespace ACE.Mods.Legend.Lib.Bank;

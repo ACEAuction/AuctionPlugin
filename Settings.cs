@@ -1,4 +1,4 @@
-﻿using ACE.Mods.Legend.Lib.Container;
+﻿using ACE.Mods.Legend.Lib.CustomContainer;
 using ACE.Mods.Legend.Lib.Bank;
 using ACE.Mods.Legend.Lib.Auction;
 

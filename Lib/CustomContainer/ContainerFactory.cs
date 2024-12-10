@@ -5,7 +5,7 @@ using ACE.Entity.Enum.Properties;
 using ACE.Server.Factories;
 using ACE.Server.Managers;
 
-namespace ACE.Mods.Legend.Lib.Container;
+namespace ACE.Mods.Legend.Lib.CustomContainer;
 
 public static class ContainerFactory
 {
@@ -62,6 +62,8 @@ public static class ContainerFactory
         chest.Location = new Position(containerPosition);
         chest.TimeToRot = -1;
         chest.SetProperty(PropertyInt.ItemsCapacity, int.MaxValue);
+        chest.SetProperty(PropertyInt.ContainersCapacity, int.MaxValue);
+        chest.SetProperty(PropertyInt.EncumbranceCapacity, int.MaxValue);
         chest.SetProperty(PropertyString.Name, keycode);
         chest.SaveBiotaToDatabase();
 

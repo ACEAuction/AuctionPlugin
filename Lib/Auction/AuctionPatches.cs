@@ -156,6 +156,10 @@ namespace ACE.Mods.Legend.Lib.Auction
                     session.Player.RemoveTagItem(removeId);
                     break;
 
+                case "all":
+                    session.Player.TagAllInventory();
+                    break;
+
                 case "clear":
                     session.Player.ClearTags();
                     break;

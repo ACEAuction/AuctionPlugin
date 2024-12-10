@@ -9,6 +9,7 @@ using ACE.Server.Factories;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
+using ACE.Server.Managers;
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
@@ -549,6 +550,16 @@ public static class AuctionExtensions
             }
 
             player.SendAuctionMessage($"You have cleared your tagged list");
+        }
+    }
+    public static void TagAllInventory(this Player player)
+    {
+        foreach(var item in player.Inventory.Values.ToList())
+        {
+            try
+            {
+                player.AddTagItem(item.Guid.Full);
+            } catch { }
         }
     }
 
