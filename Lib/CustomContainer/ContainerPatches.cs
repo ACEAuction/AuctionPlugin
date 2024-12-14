@@ -147,7 +147,11 @@ public static class ContainerPatches
                 {
                     var bankId = item.GetBankId();
                     return bankId > 0 && bankId == player.Account.AccountId;
-                }).OrderByDescending(item => item.ItemType).ToList();
+                })
+                .OrderByDescending(item => item.ItemType)
+                .OrderByDescending(item => item.Name.Split("").Last())
+                .OrderByDescending(item => item.ValidLocations)
+                .ToList();
 
         if (localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE)
             inventory = localInstance.Inventory.Values
@@ -161,7 +165,11 @@ public static class ContainerPatches
                     if (listingOwner > 0 && listingOwner == player.Account.AccountId)
                         return true;
                     return false;
-                }).OrderByDescending(item => item.ItemType).ToList();
+                })
+                .OrderByDescending(item => item.ItemType)
+                .OrderByDescending(item => item.Name.Split("").Last())
+                .OrderByDescending(item => item.ValidLocations)
+                .ToList();
 
         foreach (var item in inventory)
         {
@@ -182,7 +190,11 @@ public static class ContainerPatches
         // send sub-containersC
         foreach (Container container in inventory.Where(i => i is Container))
         {
-            var containerItems = container.Inventory.Values.OrderByDescending(item => item.ItemType).ToList();
+            var containerItems = container.Inventory.Values
+                .OrderByDescending(item => item.ItemType)
+                .OrderByDescending(item => item.Name.Split("").Last())
+                .OrderByDescending(item => item.ValidLocations)
+                .ToList();
             player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, container, containerItems));
         }
 
