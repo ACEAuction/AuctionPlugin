@@ -90,6 +90,14 @@ public static class AuctionManager
         {
             try
             {
+                var failedListing = GetFailedListing();
+                if (failedListing != null)
+                {
+                    Log($"Failed listing Id = {failedListing.Guid.Full}");
+                    var relatedItems = GetRelatedItems(failedListing);
+                    ProcessExpiredListing(failedListing, relatedItems);
+                }
+
                 var activeListing = GetExpiredListing(currentUnixTime);
                 if (activeListing != null)
                 {
@@ -130,24 +138,23 @@ public static class AuctionManager
         {
             var status = item.GetListingStatus();
             var endTime = item.GetListingEndTimestamp();
-            return (status == "active") && endTime < currentUnixTime;
+            return status == "active" && endTime < currentUnixTime;
         });
+    }
+
+    private static WorldObject? GetFailedListing()
+    {
+        return ListingsContainer.Inventory.Values
+            .Where(item => item.GetListingStatus() == "failed")
+            .OrderBy(item => item.GetLastFailListingTimestamp()).FirstOrDefault();
     }
 
     private static List<WorldObject> GetRelatedItems(WorldObject activeListing)
     {
         return ItemsContainer.Inventory.Values
-            .Where(item =>
-            {
-                var bidOwnerId = item.GetBidOwnerId();
-                var listingOwner = item.GetListingOwnerId();
-
-                return (bidOwnerId > 0 && bidOwnerId == activeListing.GetHighestBidder()) ||
-                       (listingOwner > 0 && listingOwner == activeListing.GetSellerId());
-            })
+            .Where(item => item.GetListingId() == activeListing.Guid.Full)
             .ToList();
     }
-
 
     private static void ProcessExpiredListing(WorldObject activeListing, List<WorldObject> auctionItems)
     {
@@ -162,6 +169,9 @@ public static class AuctionManager
         var listingItems = auctionItems
             .Where(item => sellerId > 0 && item.GetListingOwnerId() == sellerId && item.GetListingId() == activeListing.Guid.Full )
             .ToList();
+
+        if (activeListing.GetListingStatus() == "failed")
+            //Debugger.Break();
 
         LogListingDetails(activeListing, auctionItems, sellerName, highestBidderId, bidItems.Count, listingItems.Count);
 
@@ -185,8 +195,8 @@ public static class AuctionManager
         catch (Exception ex)
         {
             HandleAuctionFailure(activeListing, ex.Message);
-            RestoreFailedItems(listingItems, sellerId, activeListing.GetListingId(), true);
-            RestoreFailedItems(bidItems, highestBidderId, activeListing.GetListingId(), false);
+            RestoreFailedItems(listingItems, sellerId, activeListing.Guid.Full, true);
+            RestoreFailedItems(bidItems, highestBidderId, activeListing.Guid.Full, false);
         }
     }
 
@@ -234,6 +244,7 @@ public static class AuctionManager
     {
         ModManager.Log(errorMessage, ModManager.LogLevel.Error);
         listing.SetProperty(FakeString.ListingStatus, "failed");
+        listing.SetProperty(FakeFloat.LastFailedListingTimestamp, Time.GetUnixTime(DateTime.UtcNow));
     }
 
     private static void RestoreFailedItems(IEnumerable<WorldObject> items, uint ownerId, uint listingId, bool isListing)

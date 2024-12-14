@@ -46,6 +46,8 @@ public static class AuctionExtensions
         item.GetProperty(FakeFloat.ListingStartTimestamp) ?? 0;
     public static double GetListingEndTimestamp(this WorldObject item) =>
         item.GetProperty(FakeFloat.ListingEndTimestamp) ?? 0;
+    public static double GetLastFailListingTimestamp(this WorldObject item) =>
+        item.GetProperty(FakeFloat.LastFailedListingTimestamp) ?? 0;
     public static double GetBidTimestamp(this WorldObject item) =>
         item.GetProperty(FakeFloat.BidTimestamp) ?? 0;
     public static uint GetBidOwnerId(this WorldObject item) =>
