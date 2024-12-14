@@ -170,8 +170,6 @@ public static class AuctionManager
             .Where(item => sellerId > 0 && item.GetListingOwnerId() == sellerId && item.GetListingId() == activeListing.Guid.Full )
             .ToList();
 
-        if (activeListing.GetListingStatus() == "failed")
-            //Debugger.Break();
 
         LogListingDetails(activeListing, auctionItems, sellerName, highestBidderId, bidItems.Count, listingItems.Count);
 
@@ -187,7 +185,7 @@ public static class AuctionManager
             ProcessItems(bidItems, item =>
             {
                 PrepareItemForBank(item, sellerId, isBid: true);
-                TransferItemToBank(item, "bid", highestBidderId);
+                TransferItemToBank(item, "bid", sellerId);
             });
 
             FinalizeActiveListing(activeListing, "complete");
@@ -352,17 +350,21 @@ public static class AuctionManager
             .ToList();
     }
 
-    public static bool TryAddToInventory(WorldObject item)
+    private static bool HandleAddToInventory(WorldObject item)
     {
-        if (item.UseBackpackSlot)
-            return ItemsContainer.TryAddToInventory(item);
-
         var result = ItemsContainer.TryAddToInventory(item);
 
         if (result)
+        {
             Log($"Successfully added item Name = {item.NameWithMaterial}, ItemId = {item.Guid.Full} to Auction House");
+        }
 
         return result;
+    }
+
+    public static bool TryAddToInventory(WorldObject item)
+    {
+        return HandleAddToInventory(item);
     }
 
     public static bool TryRemoveFromInventory(WorldObject item)

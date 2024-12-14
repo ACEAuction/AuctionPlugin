@@ -127,26 +127,26 @@ public static class AuctionExtensions
 
     public static void PlaceAuctionBid(this Player player, uint listingId, uint bidAmount)
     {
-        List<WorldObject> removedNewBidItems = new List<WorldObject>();
-        List<WorldObject> removedOldBidItems = new List<WorldObject>();
         var listing = AuctionManager.GetListingById(listingId) ?? throw new AuctionFailure($"Listing with Id = {listingId} does not exist");
+
+        List<WorldObject> newBidItems = new List<WorldObject>();
+
+        List<WorldObject> oldBidItems = AuctionManager.ItemsContainer.Inventory.Values
+                     .Where(item => item.GetBidOwnerId() > 0 && item.GetBidOwnerId() == listing.GetHighestBidder()).ToList();
 
         var previousState = CapturePreviousBidState(listing);
 
         try
         {
             ValidateAuctionBid(player, listing, bidAmount);
-            RemovePreviousBidItems(listing, previousState.PreviousBidderId, removedOldBidItems);
-
-            var bidItems = player.GetInventoryItemsOfWCID((uint)listing.GetCurrencyType());
-            PlaceNewBid(player, listing, bidAmount, bidItems, removedNewBidItems);
-
+            RemovePreviousBidItems(listing, previousState.PreviousBidderId, oldBidItems);
+            PlaceNewBid(player, listing, bidAmount, newBidItems);
             UpdateListingWithNewBid(listing, player, bidAmount);
             NotifyPlayerOfSuccess(player, listing, bidAmount);
         }
         catch (AuctionFailure ex)
         {
-            HandleBidFailure(ex, player, listing, previousState, removedOldBidItems, removedNewBidItems);
+            HandleBidFailure(ex, player, listing, previousState, oldBidItems, newBidItems);
         }
     }
 
@@ -159,17 +159,15 @@ public static class AuctionExtensions
         );
     }
 
-    private static void RemovePreviousBidItems(WorldObject listing, uint previousBidderId, List<WorldObject> removedOldBidItems)
+    private static void RemovePreviousBidItems(WorldObject listing, uint previousBidderId, List<WorldObject> oldBidItems)
     {
-        foreach (var item in AuctionManager.ItemsContainer.Inventory.Values
-                     .Where(item => item.GetBidOwnerId() > 0 && item.GetBidOwnerId() == listing.GetHighestBidder()))
+        foreach (var item in oldBidItems)
         {
             if (!AuctionManager.TryRemoveFromInventory(item) ||
                 !BankManager.TryAddToInventory(item, previousBidderId))
                 throw new AuctionFailure($"Failed to process previous bid items for listing {listing.Guid.Full}");
 
             ResetBidItemProperties(item, previousBidderId);
-            removedOldBidItems.Add(item);
         }
     }
 
@@ -180,8 +178,10 @@ public static class AuctionExtensions
         item.SetProperty(FakeIID.BankId, previousBidderId);
     }
 
-    private static void PlaceNewBid(Player player, WorldObject listing, uint bidAmount, IEnumerable<WorldObject> bidItems, List<WorldObject> removedNewBidItems)
+    private static void PlaceNewBid(Player player, WorldObject listing, uint bidAmount, List<WorldObject> newBidItems)
     {
+        List<WorldObject> bidItems = player.GetInventoryItemsOfWCID((uint)listing.GetCurrencyType()).ToList();
+
         var remainingAmount = (int)bidAmount;
         var bidTime = DateTime.UtcNow;
 
@@ -191,13 +191,13 @@ public static class AuctionExtensions
 
             var amount = Math.Min(item.StackSize ?? 1, remainingAmount);
             player.RemoveItemForTransfer(item.Guid.Full, out var removedItem, amount);
-            ConfigureBidItem(removedItem, player.Account.AccountId, listing.GetListingId(), bidTime);
+            ConfigureBidItem(removedItem, player.Account.AccountId, listing.Guid.Full, bidTime);
 
             if (!AuctionManager.TryAddToInventory(removedItem))
                 throw new AuctionFailure($"Failed to add bid item to Auction Items Chest");
 
             remainingAmount -= amount;
-            removedNewBidItems.Add(removedItem);
+            newBidItems.Add(removedItem);
         }
 
         if (remainingAmount > 0)
@@ -226,12 +226,12 @@ public static class AuctionExtensions
         );
     }
 
-    private static void HandleBidFailure(AuctionFailure ex, Player player, WorldObject listing, (uint PreviousBidderId, string PreviousBidderName, int PreviousHighBid) previousState, List<WorldObject> removedOldBidItems, List<WorldObject> removedNewBidItems)
+    private static void HandleBidFailure(AuctionFailure ex, Player player, WorldObject listing, (uint PreviousBidderId, string PreviousBidderName, int PreviousHighBid) previousState, List<WorldObject> oldBidItems, List<WorldObject> newBidItems)
     {
         LogErrorAndNotifyPlayer(ex, player);
         RestorePreviousListingState(listing, previousState);
-        RevertOldBidItems(removedOldBidItems, previousState.PreviousBidderId, listing.GetListingId());
-        RevertNewBidItems(player, removedNewBidItems);
+        RevertOldBidItems(oldBidItems, previousState.PreviousBidderId, listing.Guid.Full);
+        RevertNewBidItems(player, newBidItems);
     }
 
     private static void LogErrorAndNotifyPlayer(AuctionFailure ex, Player player)
@@ -247,17 +247,16 @@ public static class AuctionExtensions
         listing.SetProperty(FakeInt.ListingHighBid, previousState.PreviousHighBid);
     }
 
-    private static void RevertOldBidItems(List<WorldObject> removedOldBidItems, uint previousBidderId, uint listingId)
+    private static void RevertOldBidItems(List<WorldObject> oldBidItems, uint previousBidderId, uint listingId)
     {
-        foreach (var item in removedOldBidItems)
+        foreach (var item in oldBidItems)
         {
             item.SetProperty(FakeIID.BankId, 0);
             item.SetProperty(FakeIID.BidOwnerId, previousBidderId);
             item.SetProperty(FakeIID.ListingId, listingId);
 
-            if (!BankManager.TryRemoveFromInventory(item, previousBidderId) ||
-                !AuctionManager.TryAddToInventory(item))
-                throw new AuctionFailure("Failed to restore previous bid items");
+            BankManager.TryRemoveFromInventory(item, previousBidderId);
+            AuctionManager.TryAddToInventory(item);
         }
     }
 
@@ -268,9 +267,8 @@ public static class AuctionExtensions
             item.RemoveProperty(FakeIID.BidOwnerId);
             item.RemoveProperty(FakeIID.ListingId);
 
-            if (!AuctionManager.TryRemoveFromInventory(item) ||
-                !player.TryCreateInInventoryWithNetworking(item))
-                throw new AuctionFailure("Failed to restore new bid items to the player or bank");
+            AuctionManager.TryRemoveFromInventory(item);
+            player.TryCreateInInventoryWithNetworking(item);
         }
     }
 
