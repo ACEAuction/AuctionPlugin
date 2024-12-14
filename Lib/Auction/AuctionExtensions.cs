@@ -10,6 +10,7 @@ using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
 using ACE.Server.Managers;
+using ACE.Mods.Legend.Lib.CustomContainer;
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
@@ -51,8 +52,7 @@ public static class AuctionExtensions
         item.GetProperty(FakeIID.BidOwnerId) ?? 0;
     public static bool GetAuctionTagging(this Player player) =>
         player.GetProperty(FakeBool.IsAuctionTagging) ?? false;
-    public static uint GetBankId(this WorldObject item) =>
-        item.GetProperty(FakeIID.BankId) ?? 0;
+    public static bool IsAuctionItemsContainer(this Container item) => item.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE;
 
     public static void SendAuctionMessage(this Player player, string message, ChatMessageType messageType = ChatMessageType.System)
     {
@@ -91,10 +91,10 @@ public static class AuctionExtensions
 
         var sellerId = listing.GetSellerId();
 
-        if (sellerId > 0 && sellerId == player.Guid.Full) 
+        if (sellerId > 0 && sellerId == player.Account.AccountId) 
             throw new AuctionFailure($"Failed to place auction bid, you cannot bid on items you are selling");
 
-        if (listing.GetHighestBidder() == player.Guid.Full)
+        if (listing.GetHighestBidder() == player.Account.AccountId)
             throw new AuctionFailure($"Failed to place auction bid, you are already the highest bidder");
 
         var listingHighBid = listing.GetHighestBid();
@@ -162,8 +162,8 @@ public static class AuctionExtensions
         foreach (var item in AuctionManager.ItemsContainer.Inventory.Values
                      .Where(item => item.GetBidOwnerId() > 0 && item.GetBidOwnerId() == listing.GetHighestBidder()))
         {
-            if (!AuctionManager.ItemsContainer.TryRemoveFromInventory(item.Guid) ||
-                !BankManager.BankContainer.TryAddToInventory(item))
+            if (!AuctionManager.TryRemoveFromInventory(item) ||
+                !BankManager.TryAddToInventory(item, previousBidderId))
                 throw new AuctionFailure($"Failed to process previous bid items for listing {listing.Guid.Full}");
 
             ResetBidItemProperties(item, previousBidderId);
@@ -189,9 +189,9 @@ public static class AuctionExtensions
 
             var amount = Math.Min(item.StackSize ?? 1, remainingAmount);
             player.RemoveItemForTransfer(item.Guid.Full, out var removedItem, amount);
-            ConfigureBidItem(removedItem, player.Guid.Full, listing.GetListingId(), bidTime);
+            ConfigureBidItem(removedItem, player.Account.AccountId, listing.GetListingId(), bidTime);
 
-            if (!AuctionManager.ItemsContainer.TryAddToInventory(removedItem))
+            if (!AuctionManager.TryAddToInventory(removedItem))
                 throw new AuctionFailure($"Failed to add bid item to Auction Items Chest");
 
             remainingAmount -= amount;
@@ -211,7 +211,7 @@ public static class AuctionExtensions
 
     private static void UpdateListingWithNewBid(WorldObject listing, Player player, uint bidAmount)
     {
-        listing.SetProperty(FakeIID.HighestBidderId, player.Guid.Full);
+        listing.SetProperty(FakeIID.HighestBidderId, player.Account.AccountId);
         listing.SetProperty(FakeString.HighestBidderName, player.Name);
         listing.SetProperty(FakeInt.ListingHighBid, (int)bidAmount);
     }
@@ -253,8 +253,8 @@ public static class AuctionExtensions
             item.SetProperty(FakeIID.BidOwnerId, previousBidderId);
             item.SetProperty(FakeIID.ListingId, listingId);
 
-            if (!BankManager.BankContainer.TryRemoveFromInventory(item.Guid) ||
-                !AuctionManager.ItemsContainer.TryAddToInventory(item))
+            if (!BankManager.TryRemoveFromInventory(item, previousBidderId) ||
+                !AuctionManager.TryAddToInventory(item))
                 throw new AuctionFailure("Failed to restore previous bid items");
         }
     }
@@ -266,8 +266,8 @@ public static class AuctionExtensions
             item.RemoveProperty(FakeIID.BidOwnerId);
             item.RemoveProperty(FakeIID.ListingId);
 
-            if (!AuctionManager.ItemsContainer.TryRemoveFromInventory(item.Guid) ||
-                (!player.TryCreateInInventoryWithNetworking(item) || !BankManager.BankContainer.TryAddToInventory(item)))
+            if (!AuctionManager.TryRemoveFromInventory(item) ||
+                !player.TryCreateInInventoryWithNetworking(item))
                 throw new AuctionFailure("Failed to restore new bid items to the player or bank");
         }
     }
@@ -334,7 +334,7 @@ public static class AuctionExtensions
         var parchment = state.ListingParchment;
 
         parchment.Name = "Auction Listing Invoice";
-        parchment.SetProperty(FakeIID.SellerId, player.Guid.Full);
+        parchment.SetProperty(FakeIID.SellerId, player.Account.AccountId);
         parchment.SetProperty(FakeString.SellerName, player.Name);
         parchment.SetProperty(FakeInt.ListingCurrencyType, (int)currencyType);
         parchment.SetProperty(FakeInt.ListingStartPrice, (int)startPrice);
@@ -351,7 +351,7 @@ public static class AuctionExtensions
         {
             player.RemoveItemForTransfer(itemId, out var removedItem);
             removedItem.SetProperty(FakeIID.ListingId, state.ListingParchment.Guid.Full);
-            removedItem.SetProperty(FakeIID.ListingOwnerId, player.Guid.Full);
+            removedItem.SetProperty(FakeIID.ListingOwnerId, player.Account.AccountId);
             state.RemovedItems.Add(removedItem);
         }
     }
@@ -360,9 +360,9 @@ public static class AuctionExtensions
     {
         foreach (var item in state.RemovedItems)
         {
-            if (item == null || !AuctionManager.ItemsContainer.TryAddToInventory(item))
+            if (item == null || !AuctionManager.TryAddToInventory(item))
             {
-                throw new AuctionFailure($"Failed to transfer listing item {item?.Name} to the auction container.");
+                throw new AuctionFailure($"Failed to transfer listing item {item?.NameWithMaterial} to the auction items container.");
             }
         }
     }
@@ -371,7 +371,7 @@ public static class AuctionExtensions
     {
         if (!AuctionManager.ListingsContainer.TryAddToInventory(state.ListingParchment))
         {
-            throw new AuctionFailure($"Failed to transfer listing parchment {state.ListingParchment.Name} to the auction container.");
+            throw new AuctionFailure($"Failed to transfer listing parchment {state.ListingParchment.NameWithMaterial} to the auction items container.");
         }
     }
     private static void FinalizeAuctionListing(Player player, AuctionSellState state)
@@ -405,12 +405,12 @@ public static class AuctionExtensions
                 actionChain.AddAction(player, () =>
                 {
                     player.SendAuctionMessage($"Attempting to return listing item {removedItem.NameWithMaterial}");
-                    AuctionManager.ItemsContainer.TryRemoveFromInventory(removedItem.Guid);
+                    AuctionManager.TryRemoveFromInventory(removedItem);
 
                     if (!player.TryCreateInInventoryWithNetworking(removedItem))
                     {
                         player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it to the bank.");
-                        BankManager.BankContainer.TryAddToInventory(removedItem);
+                        BankManager.TryAddToInventory(removedItem, player.Account.AccountId);
                     }
 
                     player.EnqueueBroadcast(new GameMessageSound(player.Guid, Sound.ReceiveItem));

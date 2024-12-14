@@ -26,9 +26,7 @@ public static class ContainerPatches
         (
             localInstance is Storage ||
             localInstance.WeenieClassId == (uint)WeenieClassName.W_STORAGE_CLASS ||
-            localInstance.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE ||
-            localInstance.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
-            localInstance.Name == Constants.BANK_CONTAINER_KEYCODE
+            localInstance.IsCustomContainer()
         )
         {
             __result = false; // Do not clear storage, ever.
@@ -57,20 +55,12 @@ public static class ContainerPatches
     public static bool PreOpen(Player player, ref Container __instance)
     {
         var localInstance = __instance;
-
         if (!localInstance.IsCustomContainer())
             return true;
 
         player.LastOpenedContainerId = localInstance.Guid;
 
         localInstance.Viewer = player.Guid.Full;
-        var sendActionChain = new ActionChain();
-        sendActionChain.AddDelaySeconds(0.5);
-        sendActionChain.AddAction(player, () =>
-        {
-            //SendUpdateForMyInventory(player, localInstance);
-        });
-        sendActionChain.EnqueueChain();
 
         if (!localInstance.IsOpen)
             localInstance.DoOnOpenMotionChanges();
@@ -166,12 +156,12 @@ public static class ContainerPatches
                     var bidOwnerId = item.GetBidOwnerId();
                     var listingOwner = item.GetListingOwnerId();
 
-                    if (bidOwnerId > 0 && bidOwnerId == player.Guid.Full)
+                    if (bidOwnerId > 0 && bidOwnerId == player.Account.AccountId)
                         return true;
-                    if (listingOwner > 0 && listingOwner == player.Guid.Full)
+                    if (listingOwner > 0 && listingOwner == player.Account.AccountId)
                         return true;
                     return false;
-                }).OrderByDescending(item => item.Value).ToList();
+                }).OrderByDescending(item => item.ItemType).ToList();
 
         foreach (var item in inventory)
         {
@@ -189,11 +179,12 @@ public static class ContainerPatches
 
         player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, localInstance, inventory));
 
-        // FIX SUB CONTAINERS WITH
-
         // send sub-containersC
-        //foreach (var container in inventory.Where(i => i is Container))
-        //player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, (Container)container), new List<WorldObject>());
+        foreach (Container container in inventory.Where(i => i is Container))
+        {
+            var containerItems = container.Inventory.Values.OrderByDescending(item => item.ItemType).ToList();
+            player.Session.Network.EnqueueSend(new PatchedGameEventViewContents(player.Session, container, containerItems));
+        }
 
         player.Session.Network.EnqueueSend(itemsToSend);
 
@@ -332,7 +323,6 @@ public static class ContainerPatches
     public static bool PreHandleActionStackableMerge(uint mergeFromGuid, uint mergeToGuid, int amount, ref Player __instance)
     {
         var localInstance = __instance;
-        var auctionItemsGuid = AuctionManager.ItemsContainer.Guid.Full;
 
         if (amount <= 0)
         {
@@ -342,7 +332,7 @@ public static class ContainerPatches
         localInstance.FindObject(mergeFromGuid, Player.SearchLocations.LocationsICanMove, out _, out var sourceStackRootOwner, out _);
         localInstance.FindObject(mergeToGuid, Player.SearchLocations.LocationsICanMove, out _, out var targetStackRootOwner, out _);
 
-        if (sourceStackRootOwner.IsAuctionItemsContainer() || targetStackRootOwner.IsAuctionItemsContainer())
+        if (sourceStackRootOwner != null && sourceStackRootOwner.IsAuctionItemsContainer() || targetStackRootOwner != null && targetStackRootOwner.IsAuctionItemsContainer())
         {
             localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, mergeFromGuid));
             return false;
@@ -541,7 +531,7 @@ public static class ContainerPatches
         if (item is Container)
         {
             // Blocking all attempts to put containers in things that aren't Players and Storage. This may not be retail, but at this time appears to be best catch all solution to Quest stamp bypass issue.
-            if (container is not Player && container is not Storage)
+            if (container is not Player && container is not Storage && !container.IsBank())
             {
                 //Session.Network.EnqueueSend(new GameEventCommunicationTransientString(Session, $"You cannot put {item.Name} in that.")); // Custom error message
                 localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, itemGuid));
@@ -589,7 +579,7 @@ public static class ContainerPatches
 
         object containerLock = localInstance.GetCustomContainerLock();
 
-        lock(containerLock)
+        lock (containerLock)
         {
             __result = localInstance.TryAddToInventory(worldObject, out _, placementPosition, limitToMainPackOnly, burdenCheck);
             return false;
@@ -614,16 +604,6 @@ public static class ContainerPatches
         lock (containerLock)
         {
             __result = localInstance.TryRemoveFromInventory(objectGuid, out WorldObject item, forceSave);
-            if (__result)
-            {
-                // set the bank id here any time a player attempts to remove or add an item to the bank. 
-                if (isBank)
-                {
-                    item.RemoveProperty(FakeIID.BankId);
-                    item.SaveBiotaToDatabase();
-                }
-            }
-
             return false;
         }
     }
@@ -654,6 +634,7 @@ public static class ContainerPatches
         }
         else
         {
+
             containerItems = localInstance.Inventory.Values.Where(i => !i.UseBackpackSlot).ToList();
 
             var itemsCapacity = localInstance.GetItemsCapacity();
@@ -785,7 +766,8 @@ public static class ContainerPatches
 
         var prevContainer = item.Container;
 
-
+        var isBank = container.IsBank();
+        
         localInstance.OnPutItemInContainer(item.Guid.Full, container.Guid.Full, placement);
 
         if (item.CurrentLandblock != null) // Movement is an item pickup off the landblock
@@ -811,8 +793,16 @@ public static class ContainerPatches
         else // Movement is within the same pack or between packs in a container on the landblock
         {
             var itemRootCreature = itemRootOwner as Creature;
+            var itemRootOwnerIsBank = itemRootOwner?.IsBank() ?? false;
+            var bankId = item.GetBankId();
 
-            if (itemRootOwner != null && !itemRootOwner.TryRemoveFromInventory(item.Guid) && (itemRootCreature == null || !itemRootCreature.TryDequipObject(item.Guid, out _, out _)))
+            if (itemRootOwner != null && itemRootOwnerIsBank && bankId > 0 && !BankManager.TryRemoveFromInventory(item, localInstance.Account.AccountId))
+            {
+                localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, "TryRemoveFromInventory failed!")); // Custom error message
+                localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, item.Guid.Full));
+            }
+
+            if (itemRootOwner != null && bankId == 0 && !itemRootOwner.TryRemoveFromInventory(item.Guid) && (itemRootCreature == null || !itemRootCreature.TryDequipObject(item.Guid, out _, out _)))
             {
                 localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, "TryRemoveFromInventory failed!")); // Custom error message
                 localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, item.Guid.Full));
@@ -830,9 +820,13 @@ public static class ContainerPatches
 
         var burdenCheck = itemRootOwner != localInstance && containerRootOwner == localInstance;
 
-        if (!container.TryAddToInventory(item, placement, true, burdenCheck))
+        if
+        (
+            (isBank && !BankManager.TryAddToInventory(item, localInstance.Account.AccountId)) ||
+            (!container.IsBank() && !container.TryAddToInventory(item, placement, true, burdenCheck))
+        )
         {
-            localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.  Session, $"Unable to put {item.Name} into container")); // Custom error message
+            localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, $"Unable to put {item.Name} into container")); // Custom error message
             localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, item.Guid.Full));
 
             if (prevLocation != null)
@@ -864,11 +858,6 @@ public static class ContainerPatches
             containerRootOwner.Value += (item.Value ?? 0);
         }
 
-        var isBank = container.IsBank();
-
-        if (isBank)
-            item.SetProperty(FakeIID.BankId, localInstance.Account.AccountId);
-
         // when moving from a non-stuck container to a different container,
         // the database must be synced immediately
         if (isBank || prevContainer != null && !prevContainer.Stuck && container != prevContainer)
@@ -881,4 +870,56 @@ public static class ContainerPatches
         __result = true;
         return false;
     }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Player), "DoHandleActionStackableSplitToContainer", new Type[] { typeof(WorldObject), typeof(Container), typeof(Container), typeof(Container), typeof(Container), typeof(WorldObject), typeof(int), typeof(int) })]
+    public static bool PreDoHandleActionStackableSplitToContainer(WorldObject stack, Container stackFoundInContainer, Container stackRootOwner, Container container, Container containerRootOwner, WorldObject newStack, int placementPosition, int amount, ref Player __instance, ref bool __result)
+    {
+        var localInstance = __instance;
+        var isBank = container.IsBank();
+        //Console.WriteLine($"{Name}.DoHandleActionStackableSplitToContainer({stack?.Name}, {stackFoundInContainer?.Name}, {stackRootOwner?.Name}, {container?.Name}, {containerRootOwner?.Name}, {newStack?.Name}, {placementPosition}, {amount})");
+
+        // Before we modify the original stack, we make sure we can add the new stack
+        if (isBank && !BankManager.TryAddToInventory(newStack, localInstance.Account.AccountId))
+        {
+            localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, "TryAddToInventory failed!")); // Custom error message
+            localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, stack.Guid.Full));
+            __result = false;
+            return false;
+        }
+
+        if (!isBank && !container.TryAddToInventory(newStack, placementPosition, true))
+        {
+            localInstance.Session.Network.EnqueueSend(new GameEventCommunicationTransientString(localInstance.Session, "TryAddToInventory failed!")); // Custom error message
+            localInstance.Session.Network.EnqueueSend(new GameEventInventoryServerSaveFailed(localInstance.Session, stack.Guid.Full));
+            __result = false;
+            return false;
+        }
+
+        if (container != containerRootOwner && containerRootOwner != null)
+        {
+            containerRootOwner.EncumbranceVal += (stack.StackUnitEncumbrance * amount);
+            containerRootOwner.Value += (stack.StackUnitValue * amount);
+        }
+
+        localInstance.Session.Network.EnqueueSend(new GameMessageCreateObject(newStack));
+        localInstance.Session.Network.EnqueueSend(new GameEventItemServerSaysContainId(localInstance.Session, newStack, container));
+
+        if (!localInstance.AdjustStack(stack, -amount, stackFoundInContainer, stackRootOwner))
+        {
+
+            __result = false;
+            return false;
+        }
+
+        if (stackRootOwner == null)
+            localInstance.EnqueueBroadcast(new GameMessageSetStackSize(stack));
+        else
+            localInstance.Session.Network.EnqueueSend(new GameMessageSetStackSize(stack));
+
+        __result = false;
+        return false;
+    }
+
 }
+

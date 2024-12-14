@@ -8,6 +8,7 @@ using ACE.Shared;
 using System.Collections.Concurrent;
 using ACE.Database;
 using ACE.Entity.Models;
+using ACE.Entity.Enum.Properties;
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
@@ -37,15 +38,40 @@ public static class AuctionManager
 
     private static Chest CreateListingsContainer()
     {
-        var container = ContainerFactory
-            .CreateContainer(Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE, Constants.AUCTION_LISTINGS_CONTAINER_LOCATION);
-        return container;
+        var keycode = Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
+        var location = Constants.AUCTION_LISTINGS_CONTAINER_LOCATION;
+
+        return ContainerFactory
+            .CreateContainer(keycode, location, onCreate: (Chest chest) =>
+            {
+                chest.DisplayName = keycode;
+                chest.Location = new Position(location);
+                chest.TimeToRot = -1;
+                chest.SetProperty(PropertyInt.ItemsCapacity, int.MaxValue);
+                chest.SetProperty(PropertyInt.ContainersCapacity, int.MaxValue);
+                chest.SetProperty(PropertyInt.EncumbranceCapacity, int.MaxValue);
+                chest.SetProperty(PropertyString.Name, keycode);
+                chest.SaveBiotaToDatabase();
+            });
     }
+
     private static Chest CreateItemsContainer()
     {
-        var container = ContainerFactory
-            .CreateContainer(Constants.AUCTION_ITEMS_CONTAINER_KEYCODE, Constants.AUCTION_ITEMS_CONTAINER_LOCATION);
-        return container;
+        var keycode = Constants.AUCTION_ITEMS_CONTAINER_KEYCODE;
+        var location = Constants.AUCTION_ITEMS_CONTAINER_LOCATION;
+
+        return ContainerFactory
+            .CreateContainer(keycode, location, onCreate: (Chest chest) =>
+            {
+                chest.DisplayName = keycode;
+                chest.Location = new Position(location);
+                chest.TimeToRot = -1;
+                chest.SetProperty(PropertyInt.ItemsCapacity, int.MaxValue);
+                chest.SetProperty(PropertyInt.ContainersCapacity, int.MaxValue);
+                chest.SetProperty(PropertyInt.EncumbranceCapacity, int.MaxValue);
+                chest.SetProperty(PropertyString.Name, keycode);
+                chest.SaveBiotaToDatabase();
+            });
     }
 
     public static void Tick(double currentUnixTime)
@@ -129,11 +155,13 @@ public static class AuctionManager
         var sellerName = activeListing.GetSellerName();
         var highestBidderId = activeListing.GetHighestBidder();
 
-        var addedListingItems = new List<WorldObject>();
-        var addedBidItems = new List<WorldObject>();
+        var bidItems = auctionItems
+            .Where(item => highestBidderId > 0 && item.GetBidOwnerId() == highestBidderId && item.GetListingId() == activeListing.Guid.Full)
+            .ToList();
 
-        var bidItems = auctionItems.Where(item => highestBidderId > 0 && item.GetBidOwnerId() == highestBidderId).ToList();
-        var listingItems = auctionItems.Where(item => item.GetListingOwnerId() == sellerId).ToList();
+        var listingItems = auctionItems
+            .Where(item => sellerId > 0 && item.GetListingOwnerId() == sellerId && item.GetListingId() == activeListing.Guid.Full )
+            .ToList();
 
         LogListingDetails(activeListing, auctionItems, sellerName, highestBidderId, bidItems.Count, listingItems.Count);
 
@@ -142,24 +170,23 @@ public static class AuctionManager
             ProcessItems(listingItems, item =>
             {
                 var bankId = highestBidderId > 0 ? highestBidderId : sellerId;
-                PrepareItemForBank(item, bankId, sellerId);
-                TransferItemToBank(item, addedListingItems, "listing");
+                PrepareItemForBank(item, bankId);
+                TransferItemToBank(item, "listing", bankId);
             });
 
             ProcessItems(bidItems, item =>
             {
-                PrepareItemForBank(item, sellerId, highestBidderId, isBid: true);
-                TransferItemToBank(item, addedBidItems, "bid");
+                PrepareItemForBank(item, sellerId, isBid: true);
+                TransferItemToBank(item, "bid", highestBidderId);
             });
 
             FinalizeActiveListing(activeListing, "complete");
         }
-        catch (AuctionFailure ex)
+        catch (Exception ex)
         {
             HandleAuctionFailure(activeListing, ex.Message);
-            RestoreFailedItems(addedListingItems, sellerId, activeListing.GetListingId(), true);
-            RestoreFailedItems(addedBidItems, highestBidderId, activeListing.GetListingId(), false);
-            throw;
+            RestoreFailedItems(listingItems, sellerId, activeListing.GetListingId(), true);
+            RestoreFailedItems(bidItems, highestBidderId, activeListing.GetListingId(), false);
         }
     }
 
@@ -181,23 +208,20 @@ public static class AuctionManager
         }
     }
 
-    private static void PrepareItemForBank(WorldObject item, uint bankId, uint ownerId, bool isBid = false)
+    private static void PrepareItemForBank(WorldObject item, uint bankId, bool isBid = false)
     {
         item.RemoveProperty(FakeIID.ListingId);
         item.RemoveProperty(isBid ? FakeIID.BidOwnerId : FakeIID.ListingOwnerId);
         item.SetProperty(FakeIID.BankId, bankId);
     }
 
-    private static void TransferItemToBank(WorldObject item, List<WorldObject> addedItems, string itemType)
+    private static void TransferItemToBank(WorldObject item, string itemType, uint ownerId)
     {
-        if (!ItemsContainer.TryRemoveFromInventory(item.Guid))
-            throw new AuctionFailure($"Failed to remove expired auction {itemType} item with Id = {item.Guid.Full} from Auction Items Chest");
+        if (!TryRemoveFromInventory(item))
+            throw new AuctionFailure($"Failed to remove expired auction {itemType} item with Id = {item.Guid.Full}, Name = {item.NameWithMaterial} from Auction Items Chest");
 
-        if (!BankManager.BankContainer.TryAddToInventory(item))
-            throw new AuctionFailure($"Failed to add completed auction {itemType} item with Id = {item.Guid.Full} to Bankbox");
-
-        Log($"Removed expired {itemType} item {item.Name}", ModManager.LogLevel.Warn);
-        addedItems.Add(item);
+        if (!BankManager.TryAddToInventory(item, ownerId))
+            throw new AuctionFailure($"Failed to add completed auction {itemType} item with Id = {item.Guid.Full}, Name = {item.NameWithMaterial} to Bankbox");
     }
 
     private static void FinalizeActiveListing(WorldObject listing, string status)
@@ -228,13 +252,9 @@ public static class AuctionManager
                 item.SetProperty(FakeIID.ListingId, listingId);
             }
 
-            if (!BankManager.BankContainer.TryRemoveFromInventory(item.Guid))
-                throw new AuctionFailure($"Failed to remove failed auction {(isListing ? "listing" : "bid")} item with Id = {item.Guid.Full} from Bankbox");
+            BankManager.TryRemoveFromInventory(item, ownerId);
 
-            if (!ItemsContainer.TryAddToInventory(item))
-                throw new AuctionFailure($"Failed to add failed auction {(isListing ? "listing" : "bid")} item with Id = {item.Guid.Full} to Auction Items Chest");
-
-            Log($"Restored failed {(isListing ? "listing" : "bid")} item {item.Name}", ModManager.LogLevel.Warn);
+            TryAddToInventory(item);
         }
     }
 
@@ -319,5 +339,34 @@ public static class AuctionManager
         return ListingsContainer.Inventory.Values
             .Where(item => item.GetListingStatus() == "active")
             .ToList();
+    }
+
+    public static bool TryAddToInventory(WorldObject item)
+    {
+        if (item.UseBackpackSlot)
+            return ItemsContainer.TryAddToInventory(item);
+
+        var result = ItemsContainer.TryAddToInventory(item);
+
+        if (result)
+            Log($"Successfully added item Name = {item.NameWithMaterial}, ItemId = {item.Guid.Full} to Auction House");
+
+        return result;
+    }
+
+    public static bool TryRemoveFromInventory(WorldObject item)
+    {
+        if (!ItemsContainer.Inventory.ContainsKey(item.Guid))
+        {
+            Log($"Failed to remove item with Name = {item.NameWithMaterial}, ItemId = {item.Guid.Full} from Auction House because item does not exist for item Name = {item.NameWithMaterial}, Id = {item.Guid.Full}", ModManager.LogLevel.Warn);
+            return false;
+        }
+
+        var result = ItemsContainer.TryRemoveFromInventory(item.Guid);
+
+        if (result)
+            Log($"Successfully removed item Name = {item.NameWithMaterial}, ItemId = {item.Guid.Full} from Auction House", ModManager.LogLevel.Warn);
+
+        return result;
     }
 }

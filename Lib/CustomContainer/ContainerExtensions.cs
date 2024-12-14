@@ -10,14 +10,13 @@ public static class ContainerExtensions
     public static int GetContainerCapacity(this Container item) =>
       item.GetProperty(Entity.Enum.Properties.PropertyInt.ContainersCapacity) ?? 0;
     public static int GetItemsCapacity(this WorldObject item) => item.GetProperty(Entity.Enum.Properties.PropertyInt.ItemsCapacity) ?? 0;
-    public static bool IsBank(this Container item) => item.Name == Constants.BANK_CONTAINER_KEYCODE;
-    public static bool IsAuctionItemsContainer(this Container item) => item.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE;
-    public static bool IsCustomContainer(this Container container)
-    {
-        return container.Name == Constants.BANK_CONTAINER_KEYCODE ||
-            container.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
-            container.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
-    }
+    public static bool IsMaxItemCapacity(this Container item) =>
+        item.GetItemsCapacity() <= item.Inventory.Values.Where(i => !i.UseBackpackSlot).Count(); 
+
+    public static bool IsCustomContainer(this Container container) =>
+        container.Name == Constants.BANK_CONTAINER_KEYCODE ||
+        container.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE ||
+        container.Name == Constants.AUCTION_LISTINGS_CONTAINER_KEYCODE;
 
     public static object GetCustomContainerLock(this Container container)
     {

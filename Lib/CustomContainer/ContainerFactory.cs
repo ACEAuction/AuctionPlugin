@@ -24,12 +24,11 @@ public static class ContainerFactory
         }
     }
 
-    public static Chest CreateContainer(string keycode, Position containerPosition)
+    public static Chest CreateContainer(string keycode, Position containerPosition, Action<Chest> onCreate)
     {
         var containerId = GetContainerId(keycode);
 
         Chest chest;
-        var weenie = DatabaseManager.World.GetCachedWeenie((uint)WeenieClassName.W_CHEST_CLASS);
 
         var lb = LandblockManager.GetLandblock(containerPosition.LandblockId, false, true);
 
@@ -43,8 +42,10 @@ public static class ContainerFactory
 
         if (containerId == 0)
         {
+            var weenie = DatabaseManager.World.GetCachedWeenie((uint)WeenieClassName.W_CHEST_CLASS);
             var guid = GuidManager.NewDynamicGuid();
             chest = (Chest)WorldObjectFactory.CreateWorldObject(weenie, guid);
+            onCreate?.Invoke(chest);
         }
         else
         {
@@ -57,18 +58,6 @@ public static class ContainerFactory
 
             chest = (Chest)WorldObjectFactory.CreateWorldObject(biota);
         }
-
-        chest.DisplayName = keycode;
-        chest.Location = new Position(containerPosition);
-        chest.TimeToRot = -1;
-        chest.SetProperty(PropertyInt.ItemsCapacity, int.MaxValue);
-        chest.SetProperty(PropertyInt.ContainersCapacity, int.MaxValue);
-        chest.SetProperty(PropertyInt.EncumbranceCapacity, int.MaxValue);
-        chest.SetProperty(PropertyString.Name, keycode);
-        chest.SaveBiotaToDatabase();
-
-        if (chest == null)
-            throw new Exception($"Failed to create container with id: {containerId}");
 
         return chest;
     }
