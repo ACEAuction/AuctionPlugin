@@ -1,12 +1,18 @@
 ﻿using ACE.Database;
 using ACE.Entity;
 using ACE.Entity.Models;
+using ACE.Mods.Legend.Lib.Auction.Network;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Server.Command.Handlers;
 using ACE.Server.Managers;
+using ACE.Server.Network;
+using ACE.Server.Network.GameAction;
+using ACE.Server.Network.GameMessages;
 using ACE.Server.Network.GameMessages.Messages;
+using ACE.Server.Network.Managers;
 using ACE.Shared;
+using static ACE.Server.Network.Managers.InboundMessageManager;
 
 namespace ACE.Mods.Legend.Lib.Auction
 {
@@ -19,6 +25,32 @@ namespace ACE.Mods.Legend.Lib.Auction
         {
             AuctionManager.Tick(Time.GetUnixTime());
         }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(InboundMessageManager), "DefineMessageHandlers")]
+        public static void PostDefineMessageHandlers()
+        {
+            messageHandlers = messageHandlers ?? new Dictionary<GameMessageOpcode, MessageHandlerInfo>();
+
+            foreach (var type in Assembly.GetExecutingAssembly().GetTypes())
+            {
+                foreach (var methodInfo in type.GetMethods())
+                {
+                    foreach (var messageHandlerAttribute in methodInfo.GetCustomAttributes<GameMessageAttribute>())
+                    {
+                        var messageHandler = new MessageHandlerInfo()
+                        {
+                            Handler = (MessageHandler)Delegate.CreateDelegate(typeof(MessageHandler), methodInfo),
+                            Attribute = messageHandlerAttribute
+                        };
+
+                        messageHandlers[messageHandlerAttribute.Opcode] = messageHandler;
+                    }
+                }
+            }
+        }
+
+
 
         [CommandHandler("ah-sell", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 3, "Create an auction listing using tagged sell items.", "Usage /ah-sell <CurrencyType WCID> <StartPrice> <DurationInHours>")]
         public static void HandleAuctionSell(Session session, params string[] parameters)
@@ -50,7 +82,9 @@ namespace ACE.Mods.Legend.Lib.Auction
         [CommandHandler("ah-list", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 0, "Show auction house listings.", "Usage /ah-list [optional LISTING_ID]")]
         public static void HandleAuctionList(Session session, params string[] parameters)
         {
-            try
+            var items = AuctionManager.GetActiveItems();
+            session.Network.EnqueueSend(new GameMessageSendAuctionListings(items));
+            /*try
             {
                 if (parameters.Length == 1 &&
                     uint.TryParse(parameters[0], out var listingId))
@@ -91,7 +125,7 @@ namespace ACE.Mods.Legend.Lib.Auction
             {
                 ModManager.Log(ex.Message, ModManager.LogLevel.Error);
                 session.Player.SendAuctionMessage($"An unexpected error occurred");
-            }
+            }*/
         }
 
         [CommandHandler("ah-bid", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 2, "Bid on an auction listing.", "Usage /ah-bid <LISTING_ID> <BID_AMOUNT>")]

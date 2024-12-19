@@ -6,7 +6,7 @@ namespace ACE.Mods.Legend
 {
     public class Settings
     {
-        public bool IsDev { get; set; } = true;
+        public bool IsDev { get; set; } = false;
         public List<string> ContainerFactory{ get; set; } = new()
         {
             nameof(ContainerPatches),

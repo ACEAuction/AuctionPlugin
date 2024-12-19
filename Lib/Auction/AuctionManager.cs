@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using ACE.Database;
 using ACE.Entity.Models;
 using ACE.Entity.Enum.Properties;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
@@ -111,6 +112,35 @@ public static class AuctionManager
                 Log($"Tick, Error occurred: {ex}", ModManager.LogLevel.Error);
             }
         }
+    }
+
+    public static List<AuctionItem> GetActiveItems()
+    {
+        List<AuctionItem> auctionItems = new List<AuctionItem>();
+
+        var activeListings = ListingsContainer.Inventory.Values
+            .Where(item =>
+            {
+                var status = item.GetListingStatus();
+                var endTime = item.GetListingEndTimestamp();
+                return status == "active" && endTime > Time.GetUnixTime();
+            });
+
+        foreach (var listing in activeListings)
+        {
+            var items = GetRelatedItems(listing);
+            var mappedItems = items
+                .Select(item => new AuctionItem
+                {
+                    Id = item.Guid.Full,
+                    ListingId = listing.Guid.Full,
+                    Info = Helpers.BuildItemInfo(item)
+                });
+
+            auctionItems.AddRange(mappedItems);
+        }
+
+        return auctionItems;
     }
 
     private static void EnsureContainersAreLoaded()
