@@ -1,28 +1,38 @@
 ﻿namespace ACE.Mods.Legend.Lib.Common.Errors;
 
-public class AuctionFailure : Exception
+public enum FailureStatusCode
 {
-    private const string Prefix = "[AuctionFailure]";
 
-    public AuctionFailure() : base($"{Prefix} Generic Auction Exception.") { }
-
-    public AuctionFailure(string message)
-        : base($"{Prefix} {message}") { }
-
-    public AuctionFailure(string message, Exception innerException)
-        : base($"{Prefix} {message}", innerException) { }
+    UnknownError,
+    UnknownCurrency
 }
 
-public class ItemTransferFailure : Exception
+
+public class AuctionFailure: Exception
 {
-    private const string Prefix = "[ItemTransfer]";
+    public readonly FailureStatusCode Code;
 
-    public ItemTransferFailure()
-        : base($"{Prefix} Generic item transfer Exception.") { }
+    public AuctionFailure(string message, FailureStatusCode code = FailureStatusCode.UnknownError) : base($"{message}")
+    {
+        Code = code;
+    }
+}
 
-    public ItemTransferFailure(string message)
-        : base($"{Prefix} {message}") { }
 
-    public ItemTransferFailure(string message, Exception innerException)
-        : base($"{Prefix} {message}", innerException) { }
+public class AuctionProcessFailure : AuctionFailure
+{
+    private const string Prefix = "[AuctionProcessFailure]";
+
+    public AuctionProcessFailure(string message, FailureStatusCode code = FailureStatusCode.UnknownError) : base($"{Prefix} {message}", code)
+    {
+    }
+}
+
+public class ItemTransferFailure : AuctionFailure
+{
+    private const string Prefix = "[ItemTransferFailure]";
+
+    public ItemTransferFailure(string message, FailureStatusCode code = FailureStatusCode.UnknownError) : base($"{Prefix} {message}", code)
+    {
+    }
 }
