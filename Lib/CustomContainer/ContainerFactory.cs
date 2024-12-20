@@ -38,14 +38,16 @@ public static class ContainerFactory
         chest = (Chest)lb.GetObject(new ObjectGuid(containerId), false);
 
         if (chest != null)
+        {
+            onCreate?.Invoke(chest);
             return chest;
+        }
 
         if (containerId == 0)
         {
             var weenie = DatabaseManager.World.GetCachedWeenie((uint)WeenieClassName.W_CHEST_CLASS);
             var guid = GuidManager.NewDynamicGuid();
             chest = (Chest)WorldObjectFactory.CreateWorldObject(weenie, guid);
-            onCreate?.Invoke(chest);
         }
         else
         {
@@ -59,6 +61,7 @@ public static class ContainerFactory
             chest = (Chest)WorldObjectFactory.CreateWorldObject(biota);
         }
 
+        onCreate?.Invoke(chest);
         return chest;
     }
 }

@@ -296,7 +296,6 @@ public static class AuctionExtensions
         Book listingParchment = (Book)WorldObjectFactory.CreateNewWorldObject(365);
         string currencyName = GetCurrencyName(currencyType);
 
-        // Initialize the auction state using the new constructor
         var state = new AuctionSellState(
             new List<WorldObject>(),
             listingParchment,
@@ -317,7 +316,6 @@ public static class AuctionExtensions
         catch (AuctionFailure ex)
         {
             HandleAuctionSellFailure(player, state, ex.Message);
-            throw;
         }
     }
 
