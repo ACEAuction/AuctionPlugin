@@ -97,6 +97,7 @@ public static class BankManager
         if (result)
         {
             item.SetProperty(FakeIID.BankId, accountId);
+            item.SaveBiotaToDatabase();
             Log($"Successfully added item Name = {item.NameWithMaterial}, ItemId = {item.Guid.Full} to playerBank AccountId = {accountId}");
         }
 
@@ -116,6 +117,7 @@ public static class BankManager
         if (result)
         {
             item.RemoveProperty(FakeIID.BankId);
+            item.SaveBiotaToDatabase();
             Log($"Successfully removed item Name = {item.NameWithMaterial}, ItemId = {item.Guid.Full} from playerBank AccountId = {accountId}", ModManager.LogLevel.Warn);
         }
 
