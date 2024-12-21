@@ -52,30 +52,26 @@ namespace ACE.Mods.Legend.Lib.Auction
 
 
 
-        [CommandHandler("ah-sell", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 3, "Create an auction listing using tagged sell items.", "Usage /ah-sell <CurrencyType WCID> <StartPrice> <DurationInHours>")]
+        [CommandHandler("ah-sell", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 6, "Create an auction listing using tagged sell items.", "Usage /ah-sell <itemId> <stackSize> <numOfStacks> <CurrencyType WCID> <BuyoutPrice> <DurationInHours>")]
         public static void HandleAuctionSell(Session session, params string[] parameters)
         {
-            if (parameters.Length == 3 &&
-                uint.TryParse(parameters[0], out var currencyType) &&
-                uint.TryParse(parameters[1], out var startPrice) &&
-                ushort.TryParse(parameters[2], out var hoursDuration))
+            if (parameters.Length == 6 &&
+                uint.TryParse(parameters[0], out var itemId) &&
+                int.TryParse(parameters[1], out var stackSize) &&
+                uint.TryParse(parameters[2], out var numOfStacks) &&
+                uint.TryParse(parameters[3], out var currencyType) &&
+                uint.TryParse(parameters[4], out var BuyoutPrice) &&
+                ushort.TryParse(parameters[5], out var hoursDuration))
             {
-
-                if (AuctionManager.TaggedItems.TryGetValue(session.Player.Guid.Full, out var items) && items != null && items.Count > 0)
+                try
                 {
-                    try
-                    {
-                        session.Player.PlaceAuctionSell(items.ToList(), currencyType, startPrice, hoursDuration);
-                    }
-                    catch (Exception ex)
-                    {
-                        ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                        session.Player.SendAuctionMessage($"An unexpected error occurred");
-                    }
+                    session.Player.PlaceAuctionSell(itemId, stackSize, numOfStacks, currencyType, BuyoutPrice, hoursDuration);
                 }
-                else
-                    session.Network.EnqueueSend(new GameMessageSystemChat("You don't have any items tagged for listing, plsease use /ah-tag for more info", ChatMessageType.System));
-
+                catch (Exception ex)
+                {
+                    ModManager.Log(ex.Message, ModManager.LogLevel.Error);
+                    session.Player.SendAuctionMessage($"An unexpected error occurred");
+                }
             }
         }
 
@@ -84,48 +80,6 @@ namespace ACE.Mods.Legend.Lib.Auction
         {
             var items = AuctionManager.GetActiveItems();
             session.Network.EnqueueSend(new GameMessageSendAuctionListings(items));
-            /*try
-            {
-                if (parameters.Length == 1 &&
-                    uint.TryParse(parameters[0], out var listingId))
-                {
-
-                    var listing = AuctionManager.GetListingById(listingId);
-                    if (listing == null)
-                        session.Player.SendAuctionMessage($"Failed to find information for auction listing with Id = {listingId}");
-
-                    var info = AuctionManager.GetListingInfo(listingId);
-
-                    CommandHandlerHelper.WriteOutputInfo(session, info, ChatMessageType.Broadcast);
-                }
-                else
-                {
-                    var listings = AuctionManager.GetActiveListings();
-                    session.Player.SendAuctionMessage("...Active Auction Listings...");
-                    foreach (var listing in listings)
-                    {
-                        var player = session.Player;
-                        var currency = DatabaseManager.World.GetCachedWeenie((uint)listing.GetCurrencyType());
-                        if (currency == null)
-                            throw new AuctionFailure($"Listing with Id = {listing.Guid.Full} does not have a valid currency weenie id");
-
-                        var endTime = Time.GetDateTimeFromTimestamp(listing.GetListingEndTimestamp());
-                        var timespan = endTime - DateTime.UtcNow;
-                        var remaining = Helpers.FormatTimeRemaining(timespan);
-
-                        player.SendAuctionMessage($"[LISTING] Id = {listing.Guid.Full} Seller = {listing.GetSellerName()} Currency = {currency.GetName()} TimeRemaining = {remaining} ");
-                    }
-                }
-            }
-            catch (AuctionFailure ex)
-            {
-                session.Player.SendAuctionMessage(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                session.Player.SendAuctionMessage($"An unexpected error occurred");
-            }*/
         }
 
         [CommandHandler("ah-bid", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 2, "Bid on an auction listing.", "Usage /ah-bid <LISTING_ID> <BID_AMOUNT>")]

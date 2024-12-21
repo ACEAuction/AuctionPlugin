@@ -1,38 +1,59 @@
 ﻿namespace ACE.Mods.Legend.Lib.Common.Errors;
 
-public enum FailureStatusCode
+public static class FailureCode
 {
+    public enum Auction: uint 
+    {
+        Unknown = 0,
+        InvalidCurrencyFailure = 1,
+        UniqueItemFailure = 2,
+        InsufficientAmountFailure = 3,
+        ItemNotFoundFailure = 4,
+        DurationLimitReached = 5,
 
-    UnknownError,
-    UnknownCurrency
+        TransferItemNotFoundFailure = 6,
+        TransferItemToFailure = 7,
+        TransferItemFromFailure = 8,
+        TransferBusyFailure = 9,
+        TransferItemAttunedFailure = 10,
+
+        TransferItemsInTradeWindowFailure = 11,
+        TransferRemoveItemForGiveFailure = 12,
+        TransferItemFromBankFailure = 13,
+        TransferItemToBankFailure = 14,
+        IncompleteStack = 15,
+    }
+    public enum Bank: uint 
+    {
+
+    }
 }
 
-
-public class AuctionFailure: Exception
+public abstract class ChoriziteFailure: Exception
 {
-    public readonly FailureStatusCode Code;
+    public readonly uint Code;
 
-    public AuctionFailure(string message, FailureStatusCode code = FailureStatusCode.UnknownError) : base($"{message}")
+    public ChoriziteFailure(string message, uint code) : base($"{message}")
     {
         Code = code;
     }
 }
 
 
-public class AuctionProcessFailure : AuctionFailure
+public class AuctionFailure : ChoriziteFailure
 {
-    private const string Prefix = "[AuctionProcessFailure]";
+    private const string Prefix = "[AuctionFailure]";
 
-    public AuctionProcessFailure(string message, FailureStatusCode code = FailureStatusCode.UnknownError) : base($"{Prefix} {message}", code)
+    public AuctionFailure(string message, FailureCode.Auction code) : base($"{Prefix} {message}", (uint)code)
     {
     }
 }
 
-public class ItemTransferFailure : AuctionFailure
+public class BankFailure : ChoriziteFailure
 {
-    private const string Prefix = "[ItemTransferFailure]";
+    private const string Prefix = "[BankFailure]";
 
-    public ItemTransferFailure(string message, FailureStatusCode code = FailureStatusCode.UnknownError) : base($"{Prefix} {message}", code)
+    public BankFailure(string message, FailureCode.Bank code) : base($"{Prefix} {message}", (uint)code)
     {
     }
 }

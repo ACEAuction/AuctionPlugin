@@ -256,10 +256,10 @@ public static class AuctionManager
     private static void TransferItemToBank(WorldObject item, string itemType, uint ownerId)
     {
         if (!TryRemoveFromInventory(item))
-            throw new AuctionFailure($"Failed to remove expired auction {itemType} item with Id = {item.Guid.Full}, Name = {item.NameWithMaterial} from Auction Items Chest");
+            throw new AuctionFailure($"Failed to remove expired auction {itemType} item with Id = {item.Guid.Full}, Name = {item.NameWithMaterial} from Auction Items Chest", FailureCode.Auction.TransferItemFromFailure);
 
         if (!BankManager.TryAddToInventory(item, ownerId))
-            throw new AuctionFailure($"Failed to add completed auction {itemType} item with Id = {item.Guid.Full}, Name = {item.NameWithMaterial} to Bankbox");
+            throw new AuctionFailure($"Failed to add completed auction {itemType} item to Bank with Id = {item.Guid.Full}, Name = {item.NameWithMaterial} to Bankbox", FailureCode.Auction.TransferItemToBankFailure);
     }
 
     private static void FinalizeActiveListing(WorldObject listing, string status)
@@ -328,13 +328,13 @@ public static class AuctionManager
         var listing = GetListingById(listingId);
 
         if (listing == null)
-            throw new AuctionFailure($"Failed to get detailed listing info for auction listing with Id = {listingId}");
+            throw new AuctionFailure($"Failed to get detailed listing info for auction listing with Id = {listingId}", FailureCode.Auction.Unknown);
 
         var currency = listing.GetCurrencyType();
         var weenie = DatabaseManager.World.GetCachedWeenie((uint)currency);
 
         if (weenie == null)
-            throw new AuctionFailure($"Listing with Id = {listing.Guid.Full} does not have a valid currency weenie id");
+            throw new AuctionFailure($"Listing with Id = {listing.Guid.Full} does not have a valid currency weenie id", FailureCode.Auction.Unknown);
 
         var highestBid = listing.GetHighestBid();
         var highestBidderName = listing.GetHighestBidderName();
