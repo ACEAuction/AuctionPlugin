@@ -344,79 +344,50 @@ public static class AuctionExtensions
 
     private static void ProcessSell(Player player, uint itemId, int stackSize, uint numOfStacks, AuctionSellState state)
     {
-        // Retrieve the item to be sold
         var sellItem = player.GetInventoryItem(itemId)
             ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ItemNotFoundFailure);
 
-        // Validate conditions
         if (sellItem.ItemWorkmanship != null && numOfStacks > 1)
             throw new AuctionFailure("A loot-generated item cannot be traded if the number of stacks is greater than 1.", FailureCode.Auction.UniqueItemFailure);
 
-        // Determine the items to sell
+        var sellItemMaxStackSize = sellItem.MaxStackSize ?? 1;
+
+        if (stackSize > sellItemMaxStackSize)
+            throw new AuctionFailure("Item max stack size is lower than provided stack size.", FailureCode.Auction.ItemMaxStackSizeExceededFailure);
+
         var sellItems = (sellItem.Workmanship != null)
             ? new List<WorldObject> { sellItem }
             : player.GetInventoryItemsOfWCID(sellItem.WeenieClassId).ToList();
 
-        // Calculate the total number of items required
         var totalItemsRequired = (int)(stackSize * numOfStacks);
         var remainingAmount = totalItemsRequired;
 
-        // Create and transfer stacks
-        for (uint stackIndex = 0; stackIndex < numOfStacks; stackIndex++)
+        foreach (var item in new List<WorldObject>(sellItems))
         {
-            if (remainingAmount <= 0) break;
+            if (remainingAmount <= 0)
+                break;
 
-            int itemsInCurrentStack = 0;
-            var currentStack = new List<WorldObject>();
+            int transferAmount = Math.Min(item.StackSize ?? 1, remainingAmount);
 
-            foreach (var item in sellItems) // Iterate through available items
+            // Remove the item from player's inventory for transfer
+            player.RemoveItemForTransfer(item.Guid.Full, out WorldObject removedItem, transferAmount);
+
+            ConfigureSellItem(removedItem, player.Account.AccountId, state.ListingParchment.Guid.Full);
+            state.RemovedItems.Add(removedItem);
+
+            if (!AuctionManager.TryAddToInventory(removedItem))
             {
-                if (remainingAmount <= 0 || itemsInCurrentStack >= stackSize) break;
-
-                // Determine the transfer amount for the current item
-                int transferAmount = Math.Min(item.StackSize ?? 1, Math.Min(stackSize - itemsInCurrentStack, remainingAmount));
-                player.RemoveItemForTransfer(item.Guid.Full, out var removedItem, transferAmount);
-
-                // Configure sell item properties
-                ConfigureSellItem(removedItem, player.Account.AccountId, state.ListingParchment.Guid.Full);
-
-                if (!AuctionManager.TryAddToInventory(removedItem))
-                {
-                    throw new AuctionFailure(
-                        $"Failed to add sell item to Auction Items Chest. ID: {removedItem.Guid.Full}, Name: {removedItem.NameWithMaterial}",
-                        FailureCode.Auction.TransferItemToFailure);
-                }
-
-                itemsInCurrentStack += transferAmount;
-                remainingAmount -= transferAmount;
-                currentStack.Add(removedItem);
-
-                // Remove empty items from the source list
-                if (item.StackSize == 0) sellItems.Remove(item);
+                throw new AuctionFailure($"Failed to add sell item to Auction Items Chest. ID: {removedItem.Guid.Full}, Name: {removedItem.NameWithMaterial}", FailureCode.Auction.TransferItemToFailure);
             }
 
-            // Ensure the current stack is valid
-            if (currentStack.Count > 0)
-                state.RemovedItems.AddRange(currentStack);
-
-            // If the current stack is incomplete, throw an error
-            if (itemsInCurrentStack < stackSize && stackIndex < numOfStacks - 1)
-            {
-                throw new AuctionFailure(
-                    $"Unable to create a full stack of size {stackSize}. Stack #{stackIndex + 1} is incomplete.",
-                    FailureCode.Auction.IncompleteStack);
-            }
+            remainingAmount -= transferAmount;
         }
 
-        // Ensure all required items have been processed
         if (remainingAmount > 0)
         {
-            throw new AuctionFailure(
-                $"Insufficient sell items to meet the required quantity for listing. Listing ID: {state.ListingParchment.Guid.Full}",
-                FailureCode.Auction.InsufficientAmountFailure);
+            throw new AuctionFailure($"Insufficient sell items to meet the required quantity for listing. Listing ID: {state.ListingParchment.Guid.Full}", FailureCode.Auction.InsufficientAmountFailure);
         }
 
-        // Finalize the auction listing
         AddListingToAuctionContainer(state);
         FinalizeAuctionListing(player, state);
     }

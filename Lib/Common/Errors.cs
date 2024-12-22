@@ -22,6 +22,7 @@ public static class FailureCode
         TransferItemFromBankFailure = 13,
         TransferItemToBankFailure = 14,
         IncompleteStack = 15,
+        ItemMaxStackSizeExceededFailure = 16,
     }
     public enum Bank: uint 
     {
