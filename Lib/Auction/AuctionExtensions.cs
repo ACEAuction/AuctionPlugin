@@ -9,6 +9,9 @@ using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
 using System.Globalization;
+using ACE.Mods.Legend.Lib.Database;
+using ACE.Mods.Legend.Lib.Auction.Models;
+using ACE.Mods.Legend.Lib.Database.Models;
 
 
 namespace ACE.Mods.Legend.Lib.Auction;
@@ -29,6 +32,8 @@ public static class AuctionExtensions
         item.GetProperty(FakeIID.ListingOwnerId) ?? 0;
     public static int GetListingStartPrice(this WorldObject item) =>
         item.GetProperty(FakeInt.ListingStartPrice) ?? 0;
+    public static int GetListingBuyoutPrice(this WorldObject item) =>
+        item.GetProperty(FakeInt.ListingBuyoutPrice) ?? 0;
     public static int GetCurrencyType(this WorldObject item) =>
         item.GetProperty(FakeInt.ListingCurrencyType) ?? 0;
     public static int GetHighestBid(this WorldObject item) =>
@@ -81,12 +86,12 @@ public static class AuctionExtensions
 
     private static void ValidateAuctionBid(this Player player, WorldObject listing, uint bidAmount)
     {
-        if(listing.GetListingStatus() != "active")
+        if (listing.GetListingStatus() != "active")
             throw new AuctionFailure($"Failed to place auction bid, the listing for this bid is not currently active", FailureCode.Auction.Unknown);
 
         var sellerId = listing.GetSellerId();
 
-        if (sellerId > 0 && sellerId == player.Account.AccountId) 
+        if (sellerId > 0 && sellerId == player.Account.AccountId)
             throw new AuctionFailure($"Failed to place auction bid, you cannot bid on items you are selling", FailureCode.Auction.Unknown);
 
         if (listing.GetHighestBidder() == player.Account.AccountId)
@@ -114,7 +119,7 @@ public static class AuctionExtensions
         if (bidAmount < listingStartPrice)
             throw new AuctionFailure($"Failed to place auction bid, your bid amount is less than the starting price", FailureCode.Auction.Unknown);
 
-        if (numOfItems < listingHighBid || numOfItems < listingStartPrice )
+        if (numOfItems < listingHighBid || numOfItems < listingStartPrice)
             throw new AuctionFailure($"Failed to place auction bid, you do not have enough currency items to bid on this listing", FailureCode.Auction.Unknown);
     }
 
@@ -265,95 +270,84 @@ public static class AuctionExtensions
         }
     }
 
-    public class AuctionSellState
+    public class AuctionSellContext
     {
         public List<WorldObject> RemovedItems { get; }
-        public Book ListingParchment { get; }
+        public AuctionListing Listing { get; set; }
         public string CurrencyName { get; }
-
-        public uint CurrencyWcid { get; }
-        public int StackSize { get; }
-        public uint NumberOfStacks { get; }
         public TimeSpan RemainingTime { get; }
 
-        public AuctionSellState(List<WorldObject> removedItems, Book listingParchment, string currencyName, uint currencyWcid, int stackSize, uint numOfStacks, TimeSpan remainingTime)
+        public AuctionSellContext(List<WorldObject> removedItems, string currencyName, TimeSpan remainingTime)
         {
             RemovedItems = removedItems ?? throw new ArgumentNullException(nameof(removedItems));
-            ListingParchment = listingParchment ?? throw new ArgumentNullException(nameof(listingParchment));
             CurrencyName = currencyName ?? throw new ArgumentNullException(nameof(currencyName));
-            CurrencyWcid = currencyWcid;
-            StackSize = stackSize;
-            NumberOfStacks = numOfStacks;
             RemainingTime = remainingTime;
         }
     }
 
-    public static void PlaceAuctionSell(this Player player, uint itemId, int stackSize, uint numOfStacks, uint currencyType, uint buyoutPrice, ushort hoursDuration)
+    public static void PlaceAuctionSell(this Player player, CreateAuctionListing createAuctionListing)
     {
-        var startTime = DateTime.UtcNow;
-        var endTime = Settings.IsDev ? startTime.AddSeconds(hoursDuration) : startTime.AddHours(hoursDuration);
-        Book listingParchment = (Book)WorldObjectFactory.CreateNewWorldObject(365);
-        string currencyName = GetCurrencyName(currencyType);
+        string currencyName = GetCurrencyName(createAuctionListing.CurrencyType);
 
-        var state = new AuctionSellState(
+        var sellContext = new AuctionSellContext(
             new List<WorldObject>(),
-            listingParchment,
             currencyName,
-            currencyType,
-            stackSize,
-            numOfStacks,
-            endTime - startTime
+            createAuctionListing.EndTime - createAuctionListing.StartTime
         );
 
-        try
-        {
-            if (hoursDuration > MaxAuctionHours)
-                throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)", FailureCode.Auction.DurationLimitReached);
-            InitializeListingParchment(player, currencyType, buyoutPrice, startTime, endTime, state);
-            ProcessSell(player, itemId, (int)stackSize, numOfStacks, state);
-        }
-        catch (Exception ex)
-        {
-            HandleAuctionSellFailure(player, state, ex.Message);
-        }
+        DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
+            executeAction: dbContext =>
+            {
+                var listing = DatabaseManager.Shard.BaseDatabase.PlaceAuctionListing(dbContext, createAuctionListing);
+                sellContext.Listing = listing;
+
+                try
+                {
+                    if (createAuctionListing.HoursDuration > MaxAuctionHours)
+                        throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)", FailureCode.Auction.AuctionSellValidation);
+
+                    var auctionListing = DatabaseManager.Shard.BaseDatabase.GetActiveAuctionListing(player.Guid.Full, itemId);
+
+                    if (auctionListing != null)
+                        throw new AuctionFailure($"Failed validation for auction sell, an auction already exists for that item", FailureCode.Auction.AuctionSellValidation);
+
+                    ProcessSell(player, sellContext);
+                }
+                catch (Exception ex)
+                {
+                    HandleAuctionSellFailure(player, sellContext, ex.Message);
+                }
+                return true;
+            });
+
+
+
     }
 
     private static string GetCurrencyName(uint currencyType)
     {
         var weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
         if (weenie == null)
-            throw new AuctionFailure($"Failed to get currency name from weenie with Id = {currencyType}", FailureCode.Auction.InvalidCurrencyFailure);
+            throw new AuctionFailure($"Failed to get currency name from weenie with WeenieClassId = {currencyType}", FailureCode.Auction.AuctionSellValidation);
         return weenie.GetName();
     }
 
-    private static void InitializeListingParchment(Player player, uint currencyType, uint buyoutPrice, DateTime startTime, DateTime endTime, AuctionSellState state)
+    private static void ProcessSell(Player player, AuctionSellContext context)
     {
-        var parchment = state.ListingParchment;
+        var numOfStacks = context.Listing.NumberOfStacks;
+        var stackSize = context.Listing.StackSize;
+        var listingId = context.Listing.Id;
 
-        parchment.Name = "Auction Listing Invoice";
-        parchment.SetProperty(FakeIID.SellerId, player.Account.AccountId);
-        parchment.SetProperty(FakeString.SellerName, player.Name);
-        parchment.SetProperty(FakeInt.ListingCurrencyType, (int)currencyType);
-        parchment.SetProperty(FakeInt.ListingStartPrice, (int)buyoutPrice);
-        parchment.SetProperty(FakeFloat.ListingStartTimestamp, (double)Time.GetUnixTime(startTime));
-        parchment.SetProperty(FakeFloat.ListingEndTimestamp, (double)Time.GetUnixTime(endTime));
-        parchment.SetProperty(FakeString.ListingStatus, "active");
-
-        ModManager.Log($"[AuctionHouse] Initialized listing parchment with Id = {parchment.Guid.Full}", ModManager.LogLevel.Warn);
-    }
-
-    private static void ProcessSell(Player player, uint itemId, int stackSize, uint numOfStacks, AuctionSellState state)
-    {
-        var sellItem = player.GetInventoryItem(itemId)
-            ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ItemNotFoundFailure);
+        var sellItem = player.GetInventoryItem(context.Listing.ItemId)
+            ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ProcessSell);
 
         if (sellItem.ItemWorkmanship != null && numOfStacks > 1)
-            throw new AuctionFailure("A loot-generated item cannot be traded if the number of stacks is greater than 1.", FailureCode.Auction.UniqueItemFailure);
+            throw new AuctionFailure("A loot-generated item cannot be traded if the number of stacks is greater than 1.", FailureCode.Auction.ProcessSell);
 
         var sellItemMaxStackSize = sellItem.MaxStackSize ?? 1;
 
         if (stackSize > sellItemMaxStackSize)
-            throw new AuctionFailure("Item max stack size is lower than provided stack size.", FailureCode.Auction.ItemMaxStackSizeExceededFailure);
+            throw new AuctionFailure("Item max stack size is lower than provided stack size.", FailureCode.Auction.ProcessSell);
 
         var sellItems = (sellItem.Workmanship != null)
             ? new List<WorldObject> { sellItem }
@@ -361,6 +355,7 @@ public static class AuctionExtensions
 
         var totalItemsRequired = (int)(stackSize * numOfStacks);
         var remainingAmount = totalItemsRequired;
+        WorldObject? itemToRemove = null;
 
         foreach (var item in new List<WorldObject>(sellItems))
         {
@@ -369,27 +364,22 @@ public static class AuctionExtensions
 
             int transferAmount = Math.Min(item.StackSize ?? 1, remainingAmount);
 
-            // Remove the item from player's inventory for transfer
             player.RemoveItemForTransfer(item.Guid.Full, out WorldObject removedItem, transferAmount);
 
-            ConfigureSellItem(removedItem, player.Account.AccountId, state.ListingParchment.Guid.Full);
-            state.RemovedItems.Add(removedItem);
+            itemToRemove = removedItem;
 
-            if (!AuctionManager.TryAddToInventory(removedItem))
-            {
-                throw new AuctionFailure($"Failed to add sell item to Auction Items Chest. ID: {removedItem.Guid.Full}, Name: {removedItem.NameWithMaterial}", FailureCode.Auction.TransferItemToFailure);
-            }
+            context.RemovedItems.Add(removedItem);
 
             remainingAmount -= transferAmount;
         }
 
         if (remainingAmount > 0)
         {
-            throw new AuctionFailure($"Insufficient sell items to meet the required quantity for listing. Listing ID: {state.ListingParchment.Guid.Full}", FailureCode.Auction.InsufficientAmountFailure);
+            throw new AuctionFailure($"Insufficient sell items to meet the required quantity for listing. Listing ID: {sellContext.ListingParchment.Guid.Full}", FailureCode.Auction.InsufficientAmountFailure);
         }
 
-        AddListingToAuctionContainer(state);
-        FinalizeAuctionListing(player, state);
+        ConfigureSellItem(itemToRemove, player.Account.AccountId, listingId);
+        //FinalizeAuctionListing(player);
     }
 
 
@@ -399,9 +389,9 @@ public static class AuctionExtensions
         removedItem.SetProperty(FakeIID.ListingId, listingId);
     }
 
-    private static void TransferSellItemsToAuctionContainer(AuctionSellState state)
+    private static void TransferSellItemsToAuctionContainer(AuctionSellContext sellContext)
     {
-        foreach (var item in state.RemovedItems)
+        foreach (var item in sellContext.RemovedItems)
         {
             if (item == null || !AuctionManager.TryAddToInventory(item))
             {
@@ -410,33 +400,33 @@ public static class AuctionExtensions
         }
     }
 
-    private static void AddListingToAuctionContainer(AuctionSellState state)
+    private static void AddListingToAuctionContainer(AuctionSellContext sellContext)
     {
-        if (!AuctionManager.ListingsContainer.TryAddToInventory(state.ListingParchment))
+        if (!AuctionManager.ListingsContainer.TryAddToInventory(sellContext.ListingParchment))
         {
-            throw new AuctionFailure($"Failed to transfer listing parchment {state.ListingParchment.NameWithMaterial} to the auction items container.", FailureCode.Auction.TransferItemToFailure);
+            throw new AuctionFailure($"Failed to transfer listing parchment {sellContext.ListingParchment.NameWithMaterial} to the auction items container.", FailureCode.Auction.TransferItemToFailure);
         }
     }
-    private static void FinalizeAuctionListing(Player player, AuctionSellState state)
+    private static void FinalizeAuctionListing(Player player, AuctionSellContext sellContext)
     {
-        var remaining = Helpers.FormatTimeRemaining(state.RemainingTime);
-        var message = $"Successfully created an auction listing with Id = {state.ListingParchment.Guid.Full}, Seller = {player.Name}, Currency = {state.CurrencyName}, StackSize = {state.StackSize}, NumberOfStacks = {state.NumberOfStacks}, TimeRemaining = {remaining}";
+        var remaining = Helpers.FormatTimeRemaining(sellContext.RemainingTime);
+        var message = $"Successfully created an auction listing with Id = {sellContext.ListingParchment.Guid.Full}, Seller = {player.Name}, Currency = {sellContext.CurrencyName}, StackSize = {sellContext.StackSize}, NumberOfStacks = {sellContext.NumberOfStacks}, TimeRemaining = {remaining}";
 
         player.SendAuctionMessage(message, ChatMessageType.Broadcast);
 
-        foreach (var item in state.RemovedItems)
+        foreach (var item in sellContext.RemovedItems)
         {
             player.SendAuctionMessage($"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}, Count = {item.StackSize ?? 1}");
         }
     }
 
-    private static void HandleAuctionSellFailure(Player player, AuctionSellState state, string errorMessage)
+    private static void HandleAuctionSellFailure(Player player, AuctionSellContext sellContext, string errorMessage)
     {
         ModManager.Log(errorMessage, ModManager.LogLevel.Error);
         player.SendAuctionMessage("Placing auction listing failed");
         player.SendAuctionMessage(errorMessage);
 
-        foreach (var removedItem in state.RemovedItems)
+        foreach (var removedItem in sellContext.RemovedItems)
         {
             removedItem.RemoveProperty(FakeIID.ListingId);
             removedItem.RemoveProperty(FakeIID.ListingOwnerId);
@@ -458,8 +448,8 @@ public static class AuctionExtensions
             }
         }
 
-        player.TryConsumeFromInventoryWithNetworking(state.ListingParchment.Guid.Full);
-        state.ListingParchment.Destroy();
+        player.TryConsumeFromInventoryWithNetworking(sellContext.ListingParchment.Guid.Full);
+        sellContext.ListingParchment.Destroy();
     }
 
     public static bool HasItemOnPerson(this Player player, uint itemId, out WorldObject foundItem)
@@ -471,23 +461,23 @@ public static class AuctionExtensions
     private static void RemoveItemForTransfer(this Player player, uint itemToTransfer, out WorldObject itemToRemove, int? amount = null)
     {
         if (player.IsBusy || player.Teleporting || player.suicideInProgress)
-            throw new AuctionFailure($"The item cannot be transferred, you are too busy", FailureCode.Auction.TransferBusyFailure);
+            throw new AuctionFailure($"The item cannot be transferred, you are too busy", FailureCode.Auction.TransferItemFailure);
 
         var item = player.FindObject(itemToTransfer, SearchLocations.MyInventory | SearchLocations.MyEquippedItems, out var itemFoundInContainer, out var itemRootOwner, out var itemWasEquipped);
 
         if (item == null)
-            throw new AuctionFailure($"The item cannot be transferred, item with Id = {itemToTransfer} was not found on your person", FailureCode.Auction.TransferItemNotFoundFailure);
+            throw new AuctionFailure($"The item cannot be transferred, item with Id = {itemToTransfer} was not found on your person", FailureCode.Auction.TransferItemFailure);
 
         if (item.IsAttunedOrContainsAttuned)
-            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial} is attuned", FailureCode.Auction.TransferItemAttunedFailure);
+            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial} is attuned", FailureCode.Auction.TransferItemFailure);
 
         if (player.IsTrading && item.IsBeingTradedOrContainsItemBeingTraded(player.ItemsInTradeWindow))
-            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, the item is currently being traded", FailureCode.Auction.TransferItemsInTradeWindowFailure);
+            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, the item is currently being traded", FailureCode.Auction.TransferItemFailure);
 
         var removeAmount = amount.HasValue ? amount.Value : item.StackSize ?? 1;
 
         if (!player.RemoveItemForGive(item, itemFoundInContainer, itemWasEquipped, itemRootOwner, removeAmount, out WorldObject itemToGive))
-            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, failed to remove item from location", FailureCode.Auction.TransferRemoveItemForGiveFailure);
+            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, failed to remove item from location", FailureCode.Auction.TransferItemFailure);
 
         itemToRemove = itemToGive;
     }
@@ -499,7 +489,8 @@ public static class AuctionExtensions
             player.ValidateAuctionTag(itemId, out WorldObject item);
             player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}", ChatMessageType.Broadcast);
             player.AddTagItem(itemId);
-        } catch(AuctionFailure ex)
+        }
+        catch (AuctionFailure ex)
         {
             player.SendAuctionMessage(ex.Message);
         }
@@ -593,12 +584,13 @@ public static class AuctionExtensions
     }
     public static void TagAllInventory(this Player player)
     {
-        foreach(var item in player.Inventory.Values.ToList())
+        foreach (var item in player.Inventory.Values.ToList())
         {
             try
             {
                 player.AddTagItem(item.Guid.Full);
-            } catch { }
+            }
+            catch { }
         }
     }
 

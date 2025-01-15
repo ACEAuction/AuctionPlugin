@@ -46,7 +46,8 @@ public enum FakeInt
     ListingStartPrice = 10001,
     ListingCurrencyType = 10002,
     ListingHighBid = 10003,
-    BankItemCount = 10004
+    BankItemCount = 10004,
+    ListingBuyoutPrice = 10005
 }
 
 public enum FakeInt64

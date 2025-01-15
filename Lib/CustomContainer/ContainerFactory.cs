@@ -11,7 +11,7 @@ public static class ContainerFactory
 {
     private static uint GetContainerId(string keycode)
     {
-        using (var ctx = new ShardDbContext())
+        using (var ctx = new AuctionDbContext())
         {
             var query = from container in ctx.Biota
                         join cType in ctx.BiotaPropertiesString on container.Id equals cType.ObjectId

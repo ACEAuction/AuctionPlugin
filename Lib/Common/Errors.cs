@@ -23,6 +23,10 @@ public static class FailureCode
         TransferItemToBankFailure = 14,
         IncompleteStack = 15,
         ItemMaxStackSizeExceededFailure = 16,
+        ListingAlreadyExists = 17,
+        AuctionSellValidation = 18,
+        TransferItemFailure = 19,
+        ProcessSell = 20,
     }
     public enum Bank: uint 
     {
