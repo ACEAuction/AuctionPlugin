@@ -62,6 +62,7 @@ namespace ACE.Mods.Legend.Lib.Database
 
             }
 
+
             ModManager.Log(customUpdatesPath, ModManager.LogLevel.Warn);
             if (!Directory.Exists(customUpdatesPath))
             {

@@ -29,6 +29,7 @@ public static class AuctionDatabaseExtensions
                 try
                 {
                     var result = executeAction(context);
+
                     context.SaveChanges();
                     transaction.Commit();
                     stopwatch.Stop();
@@ -39,6 +40,7 @@ public static class AuctionDatabaseExtensions
                 {
                     stopwatch.Stop();
                     ModManager.Log($"[DATABASE] Transaction failed after {stopwatch.Elapsed.TotalSeconds:F4} seconds using isolation level {isolationLevel}, rolling back.", ModManager.LogLevel.Error);
+                    ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
 
                     try
                     {
