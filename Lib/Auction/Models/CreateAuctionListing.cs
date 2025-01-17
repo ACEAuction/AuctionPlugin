@@ -10,6 +10,7 @@ public class CreateAuctionListing
 {
     public uint ItemId { get; set; }
     public uint SellerId { get; set; }
+    public string SellerName { get; set; } 
     public uint StartPrice { get; set; }
     public uint NumberOfStacks { get; internal set; }
     public uint StackSize { get; internal set; }

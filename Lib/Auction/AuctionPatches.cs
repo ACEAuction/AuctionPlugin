@@ -62,6 +62,10 @@ namespace ACE.Mods.Legend.Lib.Auction
                       .HasColumnName("seller_id")
                       .IsRequired();
 
+                entity.Property(e => e.SellerName)
+                  .HasColumnName("seller_name")
+                  .IsRequired();
+
                 entity.Property(e => e.StartPrice)
                       .HasColumnName("start_price")
                       .IsRequired();
@@ -138,6 +142,10 @@ namespace ACE.Mods.Legend.Lib.Auction
                 entity.Property(e => e.AuctionListingId)
                       .HasColumnName("auction_listing_id")
                       .IsRequired();
+
+                entity.Property(e => e.BidderName)
+                  .HasColumnName("bidder_name")
+                  .IsRequired();
 
                 entity.Property(e => e.BidAmount)
                       .HasColumnName("bid_amount")
@@ -254,16 +262,34 @@ namespace ACE.Mods.Legend.Lib.Auction
         [CommandHandler("ah-sell", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 6, "Create an auction listing using tagged sell items.", "Usage /ah-sell <itemId> <stackSize> <numOfStacks> <CurrencyType WCID> <StartPrice> <BuyoutPrice> <DurationInHours>")]
         public static void HandleAuctionSell(Session session, params string[] parameters)
         {
-            if (parameters.Length != 6 ||
-                !uint.TryParse(parameters[0], out var itemId) ||
-                !uint.TryParse(parameters[1], out var stackSize) ||
-                !uint.TryParse(parameters[2], out var numOfStacks) ||
-                !uint.TryParse(parameters[3], out var currencyType) ||
-                !uint.TryParse(parameters[4], out var startPrice) ||
-                !uint.TryParse(parameters[4], out var buyoutPrice) ||
-                !ushort.TryParse(parameters[5], out var hoursDuration))
+            if (parameters.Length != 6)
             {
-                session.Player.SendAuctionMessage($"Bad Request");
+                var response = new JsonResponse<AuctionListing>(
+                    data: null, 
+                    success: false,
+                    errorCode: (int)FailureCode.Auction.SellValidation, 
+                    errorMessage: "Invalid Auction Sell parameters!");
+
+                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
+                return;
+            }
+
+            if (
+            !uint.TryParse(parameters[0], out var itemId) ||
+            !uint.TryParse(parameters[1], out var stackSize) ||
+            !uint.TryParse(parameters[2], out var numOfStacks) ||
+            !uint.TryParse(parameters[3], out var currencyType) ||
+            !uint.TryParse(parameters[4], out var startPrice) ||
+            !uint.TryParse(parameters[4], out var buyoutPrice) ||
+            !ushort.TryParse(parameters[5], out var hoursDuration))
+            {
+                var response = new JsonResponse<AuctionListing>(
+                    data: null, 
+                    success: false,
+                    errorCode: (int)FailureCode.Auction.SellValidation, 
+                    errorMessage: "Invalid Auction Sell parameters!");
+
+                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
                 return;
             }
 
@@ -273,7 +299,8 @@ namespace ACE.Mods.Legend.Lib.Auction
                 var endTime = Settings.IsDev ? startTime.AddSeconds(hoursDuration) : startTime.AddHours(hoursDuration);
 
                 var createAuctionListing = new CreateAuctionListing();
-                createAuctionListing.SellerId = session.Player.Guid.Full;
+                createAuctionListing.SellerId = session.AccountId;
+                createAuctionListing.SellerName = session.Player.Name;
                 createAuctionListing.ItemId = itemId;
                 createAuctionListing.NumberOfStacks = numOfStacks;
                 createAuctionListing.StackSize = stackSize;
@@ -284,23 +311,39 @@ namespace ACE.Mods.Legend.Lib.Auction
                 createAuctionListing.HoursDuration = hoursDuration;
                 createAuctionListing.EndTime = endTime;
 
-                session.Player.PlaceAuctionSell(createAuctionListing);
+                var listing = session.Player.PlaceAuctionSell(createAuctionListing);
+
+                var response = new JsonResponse<AuctionListing>(data: listing);
+                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
+            }
+            catch (AuctionFailure ex)
+            {
+                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
+                var response = new JsonResponse<AuctionListing>(data: null, success: false, errorCode: (int)ex.Code, ex.Message);
+                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
             }
             catch (Exception ex)
             {
                 ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                session.Player.SendAuctionMessage($"An unexpected error occurred");
+                var response = new JsonResponse<AuctionListing>(data: null, success: false, errorCode: (int)FailureCode.Auction.Unknown, "Internal Server Error!");
+                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
             }
         }
 
         [CommandHandler("ah-list", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 0, "Show auction house listings.", "Usage /ah-list [optional LISTING_ID]")]
         public static void HandleAuctionList(Session session, params string[] parameters)
         {
-            var items = AuctionManager.GetActiveItems();
-            session.Network.EnqueueSend(new GameMessageSendAuctionListings(items));
+            var response = new JsonResponse<List<AuctionItem>>(
+               data: null,
+               success: false,
+               errorCode: (int)FailureCode.Auction.SellValidation,
+               errorMessage: "No active auctions!");
+
+            session.Network.EnqueueSend(new GameMessageAuctionGetAllListings(response));
+            return;
         }
 
-        [CommandHandler("ah-bid", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 2, "Bid on an auction listing.", "Usage /ah-bid <LISTING_ID> <BID_AMOUNT>")]
+        /*[CommandHandler("ah-bid", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 2, "Bid on an auction listing.", "Usage /ah-bid <LISTING_ID> <BID_AMOUNT>")]
         public static void HandleAuctionBid(Session session, params string[] parameters)
         {
             if (parameters.Length == 2 &&
@@ -321,91 +364,6 @@ namespace ACE.Mods.Legend.Lib.Auction
                     session.Player.SendAuctionMessage($"An unexpected error occurred");
                 }
             }
-        }
-
-        [CommandHandler("ah-tag", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 1, "Tag items in your inventory that will be included in an auction listing", "Usage: /ah-tag <inspect|list|add|remove> <addId|removeId>")]
-        public static void HandleTag(Session session, params string[] parameters)
-        {
-
-            // Ensure we have the correct number of arguments
-            if (parameters.Length < 1)
-            {
-                session.Network.EnqueueSend(new GameMessageSystemChat("Usage: /ah-tag <inspect|list|add|remove> <addId|removeId>", ChatMessageType.System));
-                return;
-            }
-
-            string command = parameters[0].ToLower(); // First argument
-            var targetId = parameters.Length > 1 ? parameters[1] : null; // Second argument if available
-
-            switch (command)
-            {
-                case "inspect":
-                    HandleInspectTag(session);
-                    break;
-
-                case "add":
-                    if (!uint.TryParse(targetId, out uint addId))
-                    {
-
-                        session.Network.EnqueueSend(new GameMessageSystemChat("Usage: /ah-tag add <addId>", ChatMessageType.System));
-                        return;
-                    }
-                    session.Player.AddTagItem(addId);
-                    break;
-
-                case "remove":
-                    if (!uint.TryParse(targetId, out uint removeId))
-                    {
-                        session.Network.EnqueueSend(new GameMessageSystemChat("Usage: /ah-tag remove <removeId>", ChatMessageType.System));
-                        return;
-                    }
-                    session.Player.RemoveTagItem(removeId);
-                    break;
-
-                case "all":
-                    session.Player.TagAllInventory();
-                    break;
-
-                case "clear":
-                    session.Player.ClearTags();
-                    break;
-
-                case "list":
-                    session.Player.ListTags();
-                    break;
-
-                default:
-                    session.Network.EnqueueSend(new GameMessageSystemChat("Invalid command. Usage: /ah-tag <inspect|add|remove> <addId|removeId>", ChatMessageType.System));
-                    break;
-            }
-        }
-
-        private static void HandleInspectTag(Session session)
-        {
-            var target = session.Player.RequestedAppraisalTarget;
-
-            if (target.HasValue)
-            {
-                var objectId = new ObjectGuid(target.Value);
-
-                try
-                {
-                    var isTagging = session.Player.GetAuctionTagging();
-                    session.Player.SetProperty(FakeBool.IsAuctionTagging, !isTagging);
-                    session.Player.SendAuctionMessage($"Toggling auction tag inspect = {!isTagging}");
-                }
-                catch (AuctionFailure ex)
-                {
-                    session.Network.EnqueueSend(new GameMessageSystemChat(ex.Message, ChatMessageType.System));
-                }
-                catch (Exception ex)
-                {
-                    ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                    session.Player.SendAuctionMessage($"An unexpected error occurred");
-                }
-            }
-        }
-
-
+        }*/
     }
 }

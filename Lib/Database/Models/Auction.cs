@@ -10,7 +10,8 @@ public enum AuctionListingStatus
 {
     active,
     completed,
-    cancelled
+    cancelled,
+    failed
 }
 
 public enum MailStatus
@@ -25,15 +26,16 @@ public partial class AuctionListing
     public uint Id { get; set; }
     public uint ItemId { get; set; }
     public uint SellerId { get; set; }
+    public string SellerName { get; set; }
     public uint StartPrice { get; set; }
     public uint BuyoutPrice { get; set; }
     public uint StackSize { get; set; }
     public uint NumberOfStacks { get; set; }
 
     public uint CurrencyType { get; set; }
-    public uint? HighestBidAmount { get; set; }
-    public uint? HighestBidId { get; set; }
-    public uint? HighestBidderId { get; set; }
+    public uint HighestBidAmount { get; set; } = 0;
+    public uint HighestBidId { get; set; } = 0;
+    public uint HighestBidderId { get; set; } = 0;
     public AuctionListingStatus Status { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
@@ -45,12 +47,15 @@ public partial class AuctionBid
 {
     public uint Id { get; set; }
     public uint BidderId { get; set; }
+    public string BidderName { get; set; }
     public uint AuctionListingId { get; set; }
     public uint BidAmount { get; set; }
     public bool Resolved { get; set; }
     public DateTime BidTime { get; set; }
 
+    [JsonIgnore]
     public AuctionListing AuctionListing { get; set; }
+    [JsonIgnore]
     public ICollection<AuctionBidItem> AuctionBidItems { get; set; }
 }
 
@@ -59,6 +64,7 @@ public partial class AuctionBidItem
     public uint Id { get; set; }
     public uint BidId { get; set; }
     public uint ItemId { get; set; }
+    [JsonIgnore]
     public AuctionBid AuctionBid { get; set; }
 }
 

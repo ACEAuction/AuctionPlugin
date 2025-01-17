@@ -1,5 +1,4 @@
 ﻿using ACE.Mods.Legend.Lib.Common.Spells;
-using ACE.Mods.Legend.Lib.Bank;
 
 namespace ACE.Mods.Legend
 {
@@ -74,9 +73,7 @@ namespace ACE.Mods.Legend
                 return;
             }
 
-            PatchContainerFactory();
             PatchAuctionManager();
-            PatchBankManager();
             SpellTools.Init();
 
             Mod.State = ModState.Running;
@@ -95,20 +92,9 @@ namespace ACE.Mods.Legend
         }
         #endregion
 
-        private void PatchContainerFactory()
-        {
-            foreach (var p in Settings.ContainerFactory)
-                Mod.Harmony.PatchCategory(p);
-        }
         private void PatchAuctionManager()
         {
             foreach (var p in Settings.AuctionManager)
-                Mod.Harmony.PatchCategory(p);
-        }
-
-        private void PatchBankManager()
-        {
-            foreach (var p in Settings.BankManager)
                 Mod.Harmony.PatchCategory(p);
         }
 

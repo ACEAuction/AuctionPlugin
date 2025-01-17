@@ -2,6 +2,7 @@ CREATE TABLE auction_listing (
     `id` INT UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'Unique Id for an auctioned item',
     `item_id` INT UNSIGNED NOT NULL,
     `seller_id` INT UNSIGNED NOT NULL,
+	`seller_name` VARCHAR(50) NOT NULL,
     `start_price` INT UNSIGNED NOT NULL,
     `buyout_price` INT UNSIGNED NOT NULL,
     `stack_size` INT UNSIGNED NOT NULL,
@@ -23,6 +24,7 @@ CREATE INDEX idx_auction_listing_status_endtime ON auction_listing (status, end_
 CREATE TABLE auction_bid (
     `id` INT UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'Unique Id for an auction bid',
     `bidder_id` INT UNSIGNED NOT NULL,
+	`bidder_name` VARCHAR(50) NOT NULL,
     `auction_listing_id` INT UNSIGNED NOT NULL,
     `bid_amount` INT UNSIGNED DEFAULT 0 NOT NULL,  
     `bid_time` DATETIME NOT NULL,

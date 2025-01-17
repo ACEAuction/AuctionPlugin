@@ -5,32 +5,9 @@ public static class FailureCode
     public enum Auction: uint 
     {
         Unknown = 0,
-        InvalidCurrencyFailure = 1,
-        UniqueItemFailure = 2,
-        InsufficientAmountFailure = 3,
-        ItemNotFoundFailure = 4,
-        DurationLimitReached = 5,
-
-        TransferItemNotFoundFailure = 6,
-        TransferItemToFailure = 7,
-        TransferItemFromFailure = 8,
-        TransferBusyFailure = 9,
-        TransferItemAttunedFailure = 10,
-
-        TransferItemsInTradeWindowFailure = 11,
-        TransferRemoveItemForGiveFailure = 12,
-        TransferItemFromBankFailure = 13,
-        TransferItemToBankFailure = 14,
-        IncompleteStack = 15,
-        ItemMaxStackSizeExceededFailure = 16,
-        ListingAlreadyExists = 17,
-        AuctionSellValidation = 18,
+        SellValidation = 18,
         TransferItemFailure = 19,
         ProcessSell = 20,
-    }
-    public enum Bank: uint 
-    {
-
     }
 }
 
@@ -47,18 +24,7 @@ public abstract class ChoriziteFailure: Exception
 
 public class AuctionFailure : ChoriziteFailure
 {
-    private const string Prefix = "[AuctionFailure]";
-
-    public AuctionFailure(string message, FailureCode.Auction code) : base($"{Prefix} {message}", (uint)code)
-    {
-    }
-}
-
-public class BankFailure : ChoriziteFailure
-{
-    private const string Prefix = "[BankFailure]";
-
-    public BankFailure(string message, FailureCode.Bank code) : base($"{Prefix} {message}", (uint)code)
+    public AuctionFailure(string message, FailureCode.Auction code) : base(message, (uint)code)
     {
     }
 }

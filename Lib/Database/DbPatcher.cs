@@ -38,7 +38,7 @@ namespace ACE.Mods.Legend.Lib.Database
             var separator = Path.DirectorySeparatorChar;
             var updatesPath = $"DatabaseSetupScripts{separator}Updates{separator}{dbType}";
             var updatesFile = $"{updatesPath}{Path.DirectorySeparatorChar}applied_updates.txt";
-            var customUpdatesPath = $"{Mod.ModPath}{separator}Lib{separator}Common{separator}Database{separator}Updates{separator}Shard";
+            var customUpdatesPath = $"{Mod.ModPath}{separator}Lib{separator}Database{separator}Updates{separator}Shard";
 
             if (!Directory.Exists(updatesPath))
             {
@@ -61,7 +61,6 @@ namespace ACE.Mods.Legend.Lib.Database
                 }
 
             }
-
 
             ModManager.Log(customUpdatesPath, ModManager.LogLevel.Warn);
             if (!Directory.Exists(customUpdatesPath))
@@ -107,17 +106,17 @@ namespace ACE.Mods.Legend.Lib.Database
                 sqlDBFile = sqlDBFile.Replace("ace_world", worldDB);
                 var script = new MySqlConnector.MySqlCommand(sqlDBFile, sqlConnect);
 
-                ModManager.Log($"Importing into {database} database on SQL server at {host}:{port} .... ");
+                Console.Write($"Importing into {database} database on SQL server at {host}:{port} .... ");
                 try
                 {
                     ExecuteScript(script);
                     //ModManager.Log($" {count} database records affected ....");
-                    ModManager.Log(" complete!");
+                    Console.WriteLine(" complete!");
                 }
                 catch (MySqlConnector.MySqlException ex)
                 {
-                    ModManager.Log($" error!");
-                    ModManager.Log($" Unable to apply patch due to following exception: {ex}");
+                    ModManager.Log($" error!", ModManager.LogLevel.Error);
+                    ModManager.Log($" Unable to apply patch due to following exception: {ex}", ModManager.LogLevel.Error);
                 }
                 File.AppendAllText(updatesFile, file.Name + Environment.NewLine);
                 CleanupConnection(sqlConnect);

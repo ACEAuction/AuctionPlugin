@@ -1,8 +1,10 @@
-﻿using ACE.Database;
+﻿using System.Runtime.CompilerServices;
+using ACE.Database;
 using ACE.Database.Models.Shard;
 using ACE.Mods.Legend.Lib.Auction.Models;
 using ACE.Mods.Legend.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ACE.Mods.Legend.Lib.Database;
 
@@ -26,7 +28,6 @@ public static class AuctionDatabaseExtensions
                 try
                 {
                     var result = executeAction(context);
-
                     context.SaveChanges();
                     transaction.Commit();
                     stopwatch.Stop();
@@ -45,13 +46,35 @@ public static class AuctionDatabaseExtensions
                     }
                     catch (Exception rollbackEx)
                     {
-                        ModManager.Log($"[DATABASE] Transaction rollback failed: {rollbackEx.Message}", ModManager.LogLevel.Error);
+                        ModManager.Log($"[DATABASE] Transaction rollback failed: {rollbackEx}", ModManager.LogLevel.Error);
                     }
 
                     failureAction?.Invoke(ex);
                     throw;
                 }
             });
+        }
+    }
+
+    public static void SendMailItem(this ShardDatabase database, AuctionDbContext context, uint receiverId, uint itemId, string from)
+    {
+        var mailItem = new MailItem
+        {
+            Status = MailStatus.pending,
+            ReceiverId = receiverId,
+            ItemId = itemId,
+            From = from
+        };
+
+        context.MailItem.Add(mailItem);
+        context.SaveChanges();
+    }
+
+    public static void SendMailItem(this ShardDatabase database, uint receiverId, uint itemId, string from)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            SendMailItem(database, context, receiverId, itemId, from);
         }
     }
 
@@ -68,6 +91,25 @@ public static class AuctionDatabaseExtensions
         }
     }
 
+    public static bool UpdateListingStatus(this ShardDatabase database, uint listingId, AuctionListingStatus status)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            var listing = context.AuctionListing.SingleOrDefault(listing => listing.Id == listingId);
+
+            if (listing != null)
+            {
+                listing.Status = status;
+                context.SaveChanges();
+                return true;
+                
+            } else
+            {
+                return false;
+            }
+        }
+    }
+
     public static AuctionListing PlaceAuctionListing(this ShardDatabase database, AuctionDbContext context, CreateAuctionListing createAuctionListing)
     {
         if (context == null) throw new ArgumentNullException(nameof(context));
@@ -76,11 +118,11 @@ public static class AuctionDatabaseExtensions
         {
             Status = AuctionListingStatus.active,
             SellerId = createAuctionListing.SellerId,
+            SellerName = createAuctionListing.SellerName,
             ItemId = createAuctionListing.ItemId,
             StackSize = createAuctionListing.StackSize,
             NumberOfStacks = createAuctionListing.NumberOfStacks,
             CurrencyType = createAuctionListing.CurrencyType,
-            HighestBidAmount = 0,
             StartPrice = createAuctionListing.StartPrice,
             BuyoutPrice = createAuctionListing.BuyoutPrice,
             StartTime = createAuctionListing.StartTime,
@@ -91,5 +133,28 @@ public static class AuctionDatabaseExtensions
         context.SaveChanges();
 
         return entry;
+    }
+
+    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionListing
+                .AsNoTracking()
+                .Where(auction => auction.Status == AuctionListingStatus.active)
+                .OrderBy(item => item.EndTime)
+                .ToList();
+        }
+    }
+
+    public static AuctionBid? GetAuctionBid(this ShardDatabase database, uint bidId)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionBid
+                .AsNoTracking()
+                .Where(auction => auction.Id == bidId)
+                .FirstOrDefault();
+        }
     }
 }
