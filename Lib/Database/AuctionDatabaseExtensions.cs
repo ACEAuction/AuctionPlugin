@@ -29,7 +29,6 @@ public static class AuctionDatabaseExtensions
                 try
                 {
                     var result = executeAction(context);
-
                     context.SaveChanges();
                     transaction.Commit();
                     stopwatch.Stop();
@@ -55,6 +54,28 @@ public static class AuctionDatabaseExtensions
                     throw;
                 }
             });
+        }
+    }
+
+    public static void SendMailItem(this ShardDatabase database, AuctionDbContext context, uint receiverId, uint itemId, string from)
+    {
+        var mailItem = new MailItem
+        {
+            Status = MailStatus.pending,
+            ReceiverId = receiverId,
+            ItemId = itemId,
+            From = from
+        };
+
+        context.MailItem.Add(mailItem);
+        context.SaveChanges();
+    }
+
+    public static void SendMailItem(this ShardDatabase database, uint receiverId, uint itemId, string from)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            SendMailItem(database, context, receiverId, itemId, from);
         }
     }
 
@@ -165,6 +186,29 @@ public static class AuctionDatabaseExtensions
                 .AsNoTracking()
                 .Where(auction => auction.Status == AuctionListingStatus.active)
                 .OrderByDescending(item => item.EndTime)
+                .ToList();
+        }
+    }
+
+    public static AuctionBid? GetAuctionBid(this ShardDatabase database, uint bidId)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionBid
+                .AsNoTracking()
+                .Where(auction => auction.Id == bidId)
+                .FirstOrDefault();
+        }
+    }
+
+    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionListing
+                .AsNoTracking()
+                .Where(auction => auction.Status == AuctionListingStatus.active)
+                .OrderBy(item => item.EndTime)
                 .ToList();
         }
     }
