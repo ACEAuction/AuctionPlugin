@@ -11,7 +11,8 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
 public enum AuctionGameMessageOpcode : uint
 {
     AuctionGetAllListings = 0x10000,
-    AuctionSell = 0x10001
+    AuctionSellRequest = 0x10001,
+    AuctionSellResponse = 0x10002
 }
 
 public class JsonResponse<T>
@@ -29,37 +30,29 @@ public class JsonResponse<T>
         Data = data;
     }
 }
-
-public class CustomGameMessage<T> : GameMessage
+public class JsonRequest<T>
 {
-    public CustomGameMessage(GameMessageOpcode opcode, GameMessageGroup group)
-        : base(opcode, group)
-    {
-    }
+    public T? Data { get; set; }
 
-    public void WriteJson(JsonResponse<T> response)
+    public JsonRequest(T? data)
     {
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        string jsonString = JsonSerializer.Serialize(response, options);
-        var length = jsonString.Length;
-        Writer.Write(length);
-        Writer.Write(Encoding.UTF8.GetBytes(jsonString));
+        Data = data;
     }
 }
 
-public class GameMessageAuctionGetAllListings : CustomGameMessage<List<AuctionItem>>
+public class GameMessageAuctionGetAllListings : GameMessage
 {
     public GameMessageAuctionGetAllListings(JsonResponse<List<AuctionItem>> response)
         : base((GameMessageOpcode)AuctionGameMessageOpcode.AuctionGetAllListings, GameMessageGroup.UIQueue)
     {
-        WriteJson(response);
+        this.WriteJson(response);
     }
 }
-public class GameMessageAuctionSell : CustomGameMessage<AuctionListing>
+public class GameMessageAuctionSellResponse : GameMessage
 {
-    public GameMessageAuctionSell(JsonResponse<AuctionListing> response)
-        : base((GameMessageOpcode)AuctionGameMessageOpcode.AuctionSell, GameMessageGroup.UIQueue)
+    public GameMessageAuctionSellResponse(JsonResponse<AuctionSellOrder> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.AuctionSellResponse, GameMessageGroup.UIQueue)
     {
-        WriteJson(response);
+        this.WriteJson(response);
     }
 }

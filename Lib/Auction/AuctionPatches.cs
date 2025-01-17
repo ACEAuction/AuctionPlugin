@@ -43,6 +43,24 @@ namespace ACE.Mods.Legend.Lib.Auction
         [HarmonyPatch(typeof(ShardDbContext), "OnModelCreating", new Type[] { typeof(ModelBuilder) })]
         public static void PostOnModelCreating(ModelBuilder modelBuilder, ref ShardDbContext __instance)
         {
+            modelBuilder.Entity<AuctionSellOrder>(entity =>
+            {
+                entity.ToTable("auction_sell_order");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .IsRequired()
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(e => e.SellerId)
+                   .HasColumnName("seller_id")
+                   .IsRequired();
+
+                entity.HasMany(e => e.Listings)
+                      .WithOne(e => e.SellOrder)
+                      .HasForeignKey(e => e.SellOrderId);
+            });
+
             modelBuilder.Entity<AuctionListing>(entity =>
             {
                 entity.HasKey(e => e.Id).HasName("PRIMARY");
@@ -56,6 +74,10 @@ namespace ACE.Mods.Legend.Lib.Auction
 
                 entity.Property(e => e.ItemId)
                       .HasColumnName("item_id")
+                      .IsRequired();
+
+                entity.Property(e => e.SellOrderId)
+                      .HasColumnName("sell_order_id")
                       .IsRequired();
 
                 entity.Property(e => e.SellerId)
@@ -116,6 +138,10 @@ namespace ACE.Mods.Legend.Lib.Auction
                 entity.HasMany(a => a.Bids)
                       .WithOne(b => b.AuctionListing)
                       .HasForeignKey(b => b.AuctionListingId);
+
+                entity.HasOne(b => b.SellOrder)
+                     .WithMany(a => a.Listings)
+                     .HasForeignKey(b => b.SellOrderId);
 
                 entity.HasIndex(a => a.Status)
                       .HasDatabaseName("idx_auction_listing_status");
@@ -254,79 +280,6 @@ namespace ACE.Mods.Legend.Lib.Auction
                         messageHandlers[messageHandlerAttribute.Opcode] = messageHandler;
                     }
                 }
-            }
-        }
-
-
-
-        [CommandHandler("ah-sell", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 6, "Create an auction listing using tagged sell items.", "Usage /ah-sell <itemId> <stackSize> <numOfStacks> <CurrencyType WCID> <StartPrice> <BuyoutPrice> <DurationInHours>")]
-        public static void HandleAuctionSell(Session session, params string[] parameters)
-        {
-            if (parameters.Length != 6)
-            {
-                var response = new JsonResponse<AuctionListing>(
-                    data: null, 
-                    success: false,
-                    errorCode: (int)FailureCode.Auction.SellValidation, 
-                    errorMessage: "Invalid Auction Sell parameters!");
-
-                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
-                return;
-            }
-
-            if (
-            !uint.TryParse(parameters[0], out var itemId) ||
-            !uint.TryParse(parameters[1], out var stackSize) ||
-            !uint.TryParse(parameters[2], out var numOfStacks) ||
-            !uint.TryParse(parameters[3], out var currencyType) ||
-            !uint.TryParse(parameters[4], out var startPrice) ||
-            !uint.TryParse(parameters[4], out var buyoutPrice) ||
-            !ushort.TryParse(parameters[5], out var hoursDuration))
-            {
-                var response = new JsonResponse<AuctionListing>(
-                    data: null, 
-                    success: false,
-                    errorCode: (int)FailureCode.Auction.SellValidation, 
-                    errorMessage: "Invalid Auction Sell parameters!");
-
-                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
-                return;
-            }
-
-            try
-            {
-                var startTime = DateTime.UtcNow;
-                var endTime = Settings.IsDev ? startTime.AddSeconds(hoursDuration) : startTime.AddHours(hoursDuration);
-
-                var createAuctionListing = new CreateAuctionListing();
-                createAuctionListing.SellerId = session.AccountId;
-                createAuctionListing.SellerName = session.Player.Name;
-                createAuctionListing.ItemId = itemId;
-                createAuctionListing.NumberOfStacks = numOfStacks;
-                createAuctionListing.StackSize = stackSize;
-                createAuctionListing.CurrencyType = currencyType;
-                createAuctionListing.StartPrice = startPrice;
-                createAuctionListing.BuyoutPrice = buyoutPrice;
-                createAuctionListing.StartTime = startTime;
-                createAuctionListing.HoursDuration = hoursDuration;
-                createAuctionListing.EndTime = endTime;
-
-                var listing = session.Player.PlaceAuctionSell(createAuctionListing);
-
-                var response = new JsonResponse<AuctionListing>(data: listing);
-                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
-            }
-            catch (AuctionFailure ex)
-            {
-                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                var response = new JsonResponse<AuctionListing>(data: null, success: false, errorCode: (int)ex.Code, ex.Message);
-                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
-            }
-            catch (Exception ex)
-            {
-                ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                var response = new JsonResponse<AuctionListing>(data: null, success: false, errorCode: (int)FailureCode.Auction.Unknown, "Internal Server Error!");
-                session.Network.EnqueueSend(new GameMessageAuctionSell(response));
             }
         }
 

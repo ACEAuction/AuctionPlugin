@@ -6,6 +6,7 @@ namespace ACE.Mods.Legend.Lib.Database;
 
 public partial class AuctionDbContext : ShardDbContext
 {
+    public virtual DbSet<AuctionSellOrder> AuctionSellOrder { get; set; }
     public virtual DbSet<AuctionListing> AuctionListing { get; set; }
     public virtual DbSet<AuctionBid> AuctionBid { get; set; }
     public virtual DbSet<AuctionBidItem> AuctionBidItem { get; set; }

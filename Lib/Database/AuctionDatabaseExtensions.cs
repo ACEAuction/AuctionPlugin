@@ -110,29 +110,45 @@ public static class AuctionDatabaseExtensions
         }
     }
 
-    public static AuctionListing PlaceAuctionListing(this ShardDatabase database, AuctionDbContext context, CreateAuctionListing createAuctionListing)
+    public static AuctionSellOrder PlaceAuctionSellOrder(this ShardDatabase database, AuctionDbContext context, CreateAuctionSell createAuctionSell)
     {
         if (context == null) throw new ArgumentNullException(nameof(context));
 
-        var entry = new AuctionListing
+
+        var sellOrder = new AuctionSellOrder()
         {
-            Status = AuctionListingStatus.active,
-            SellerId = createAuctionListing.SellerId,
-            SellerName = createAuctionListing.SellerName,
-            ItemId = createAuctionListing.ItemId,
-            StackSize = createAuctionListing.StackSize,
-            NumberOfStacks = createAuctionListing.NumberOfStacks,
-            CurrencyType = createAuctionListing.CurrencyType,
-            StartPrice = createAuctionListing.StartPrice,
-            BuyoutPrice = createAuctionListing.BuyoutPrice,
-            StartTime = createAuctionListing.StartTime,
-            EndTime = createAuctionListing.EndTime
+            SellerId = createAuctionSell.SellerId,
         };
 
-        context.AuctionListing.Add(entry);
+        context.AuctionSellOrder.Add(sellOrder);
         context.SaveChanges();
 
-        return entry;
+        return sellOrder;
+    }
+    public static AuctionListing PlaceAuctionListing(this ShardDatabase database, AuctionDbContext context, uint itemId, uint sellOrderId, CreateAuctionSell createAuctionSell)
+    {
+        if (context == null) throw new ArgumentNullException(nameof(context));
+
+        var listing = new AuctionListing
+        {
+            Status = AuctionListingStatus.active,
+            SellerId = createAuctionSell.SellerId,
+            SellerName = createAuctionSell.SellerName,
+            SellOrderId = sellOrderId,
+            ItemId = itemId,
+            CurrencyType = createAuctionSell.CurrencyType,
+            StartPrice = createAuctionSell.StartPrice,
+            BuyoutPrice = createAuctionSell.BuyoutPrice,
+            StackSize = createAuctionSell.StackSize,
+            NumberOfStacks = createAuctionSell.NumberOfStacks,
+            StartTime = createAuctionSell.StartTime,
+            EndTime = createAuctionSell.EndTime
+        };
+
+        context.AuctionListing.Add(listing);
+        context.SaveChanges();
+
+        return listing;
     }
 
     public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
@@ -142,7 +158,7 @@ public static class AuctionDatabaseExtensions
             return context.AuctionListing
                 .AsNoTracking()
                 .Where(auction => auction.Status == AuctionListingStatus.active)
-                .OrderBy(item => item.EndTime)
+                .OrderByDescending(item => item.EndTime)
                 .ToList();
         }
     }

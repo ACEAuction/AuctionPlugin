@@ -21,9 +21,17 @@ public enum MailStatus
     failed
 }
 
+public partial class AuctionSellOrder
+{
+    public uint Id { get; set; }
+    public uint SellerId { get; set; }
+    public ICollection<AuctionListing> Listings { get; set; }
+}
+
 public partial class AuctionListing
 {
     public uint Id { get; set; }
+    public uint SellOrderId { get; set; }
     public uint ItemId { get; set; }
     public uint SellerId { get; set; }
     public string SellerName { get; set; }
@@ -31,7 +39,6 @@ public partial class AuctionListing
     public uint BuyoutPrice { get; set; }
     public uint StackSize { get; set; }
     public uint NumberOfStacks { get; set; }
-
     public uint CurrencyType { get; set; }
     public uint HighestBidAmount { get; set; } = 0;
     public uint HighestBidId { get; set; } = 0;
@@ -40,6 +47,8 @@ public partial class AuctionListing
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
 
+    [JsonIgnore]
+    public AuctionSellOrder SellOrder { get; set; }
     public ICollection<AuctionBid> Bids { get; set; }
 }
 

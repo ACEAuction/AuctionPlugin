@@ -1,8 +1,15 @@
+CREATE TABLE auction_sell_order (
+    `id` INT UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'Unique Id for a sell order',
+    `seller_id` INT UNSIGNED NOT NULL COMMENT 'Seller Id associated with the sell order',
+    PRIMARY KEY (`id`)
+);
+
 CREATE TABLE auction_listing (
     `id` INT UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'Unique Id for an auctioned item',
     `item_id` INT UNSIGNED NOT NULL,
+    `sell_order_id` INT UNSIGNED NOT NULL COMMENT 'Reference to AuctionSellOrder',
     `seller_id` INT UNSIGNED NOT NULL,
-	`seller_name` VARCHAR(50) NOT NULL,
+    `seller_name` VARCHAR(50) NOT NULL,
     `start_price` INT UNSIGNED NOT NULL,
     `buyout_price` INT UNSIGNED NOT NULL,
     `stack_size` INT UNSIGNED NOT NULL,
@@ -14,7 +21,8 @@ CREATE TABLE auction_listing (
     `status` ENUM('active', 'completed', 'cancelled') DEFAULT 'active',
     `start_time` DATETIME NOT NULL,
     `end_time` DATETIME NOT NULL,
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`sell_order_id`) REFERENCES `auction_sell_order`(`id`)
 );
 
 CREATE INDEX idx_auction_listing_status ON auction_listing (status);
