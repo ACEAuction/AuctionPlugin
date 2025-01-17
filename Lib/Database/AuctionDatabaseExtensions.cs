@@ -208,7 +208,7 @@ public static class AuctionDatabaseExtensions
             return context.AuctionListing
                 .AsNoTracking()
                 .Where(auction => auction.Status == AuctionListingStatus.active)
-                .OrderBy(item => item.EndTime)
+                .OrderByDescending(item => item.EndTime)
                 .ToList();
         }
     }

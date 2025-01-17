@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace ACE.Mods.Legend.Lib.Auction.Models;
 
-public class CreateAuctionListing
+public class CreateAuctionSell
 {
     public uint ItemId { get; set; }
     public uint SellerId { get; set; }
