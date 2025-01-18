@@ -43,9 +43,9 @@ public static class AuctionManager
                 var activeListing = GetExpiredListing(currentUnixTime);
                 if (activeListing != null)
                 {
-                    Log($"Active listing Id = {activeListing.Id}");
+                    //Log($"Active listing Id = {activeListing.Id}");
 
-                    ProcessExpiredListing(activeListing);
+                    //ProcessExpiredListing(activeListing);
                 }
             }
             catch (Exception ex)

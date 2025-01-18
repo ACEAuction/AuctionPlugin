@@ -223,6 +223,7 @@ public static class AuctionExtensions
         message.Writer.Write(length);
         message.Writer.Write(Encoding.UTF8.GetBytes(jsonString));
     }
+
     public static JsonRequest<T>? ReadJson<T>(this ClientMessage message)
     {
         int length = message.Payload.ReadInt32();
@@ -243,13 +244,11 @@ public static class AuctionExtensions
         public List<WorldObject> RemovedItems { get; }
         public AuctionSellOrder SellOrder { get; set; }
         public CreateAuctionSell AuctionSell { get;}
-        public string CurrencyName { get; }
         public TimeSpan RemainingTime { get; }
 
-        public AuctionSellContext(List<WorldObject> removedItems, string currencyName, TimeSpan remainingTime, CreateAuctionSell auctionSell)
+        public AuctionSellContext(List<WorldObject> removedItems, CreateAuctionSell auctionSell, TimeSpan remainingTime)
         {
             RemovedItems = removedItems ?? throw new ArgumentNullException(nameof(removedItems));
-            CurrencyName = currencyName ?? throw new ArgumentNullException(nameof(currencyName));
             RemainingTime = remainingTime;
             AuctionSell = auctionSell;
         }
@@ -257,14 +256,12 @@ public static class AuctionExtensions
 
     public static AuctionSellOrder PlaceAuctionSell(this Player player, CreateAuctionSell createAuctionSell)
     {
-        string currencyName = GetCurrencyName(createAuctionSell.CurrencyType);
         var remainingTime = createAuctionSell.EndTime - createAuctionSell.StartTime;
 
         var sellContext = new AuctionSellContext(
             new List<WorldObject>(),
-            currencyName,
-            remainingTime,
-            createAuctionSell
+            createAuctionSell,
+            remainingTime
         );
 
         return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
@@ -288,14 +285,6 @@ public static class AuctionExtensions
                     HandleAuctionSellFailure(player, sellContext, exception.Message);
                 }
             });
-    }
-
-    private static string GetCurrencyName(uint currencyType)
-    {
-        var weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
-        if (weenie == null)
-            throw new AuctionFailure($"Failed to get currency name from weenie with WeenieClassId = {currencyType}", FailureCode.Auction.SellValidation);
-        return weenie.GetName();
     }
 
     private static void ProcessSell(Player player, AuctionSellContext sellContext, AuctionDbContext dbContext)

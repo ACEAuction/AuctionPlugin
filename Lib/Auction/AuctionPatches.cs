@@ -76,6 +76,10 @@ namespace ACE.Mods.Legend.Lib.Auction
                       .HasColumnName("item_id")
                       .IsRequired();
 
+                entity.Property(e => e.IconId)
+                      .HasColumnName("icon_id")
+                      .IsRequired();
+
                 entity.Property(e => e.SellOrderId)
                       .HasColumnName("sell_order_id")
                       .IsRequired();
@@ -104,8 +108,8 @@ namespace ACE.Mods.Legend.Lib.Auction
                       .HasColumnName("number_of_stacks")
                       .IsRequired();
 
-                entity.Property(e => e.CurrencyType)
-                      .HasColumnName("currency_type")
+                entity.Property(e => e.CurrencyName)
+                      .HasColumnName("currency_name")
                       .IsRequired();
 
                 entity.Property(e => e.HighestBidAmount)

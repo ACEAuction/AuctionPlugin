@@ -14,7 +14,7 @@ internal class AuctionSellRequest
     public uint BuyoutPrice { get; set; }
     public uint NumberOfStacks { get; set; }
     public uint StackSize { get;  set; }
-    public uint CurrencyType { get; set; }
+    public uint CurrencyWcid { get; set; }
     public uint HoursDuration { get; set; }
     public void Validate()
     {

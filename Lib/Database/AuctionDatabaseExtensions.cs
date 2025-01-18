@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using ACE.Database;
 using ACE.Database.Models.Shard;
+using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Auction.Models;
 using ACE.Mods.Legend.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
@@ -37,8 +38,8 @@ public static class AuctionDatabaseExtensions
                 catch (Exception ex)
                 {
                     stopwatch.Stop();
-                    ModManager.Log($"[DATABASE] Transaction failed after {stopwatch.Elapsed.TotalSeconds:F4} seconds using isolation level {isolationLevel}, rolling back.", ModManager.LogLevel.Error);
-                    ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
+                    ModManager.Log($"[DATABASE] Transaction failed after {stopwatch.Elapsed.TotalSeconds:F4} seconds using isolation level {isolationLevel}, rolling back.", ModManager.LogLevel.Warn);
+                    ModManager.Log(ex.ToString(), ModManager.LogLevel.Warn);
 
                     try
                     {
@@ -135,8 +136,8 @@ public static class AuctionDatabaseExtensions
             SellerId = createAuctionSell.SellerId,
             SellerName = createAuctionSell.SellerName,
             SellOrderId = sellOrderId,
+            IconId = createAuctionSell.CurrencyWeenie.GetProperty(Entity.Enum.Properties.PropertyDataId.Icon) ?? 0,
             ItemId = itemId,
-            CurrencyType = createAuctionSell.CurrencyType,
             StartPrice = createAuctionSell.StartPrice,
             BuyoutPrice = createAuctionSell.BuyoutPrice,
             StackSize = createAuctionSell.StackSize,
