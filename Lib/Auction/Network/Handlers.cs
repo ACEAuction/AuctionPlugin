@@ -13,7 +13,7 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
 {
     static Settings Settings => PatchClass.Settings;
 
-    [GameMessage((GameMessageOpcode)AuctionGameMessageOpcode.AuctionSellRequest, SessionState.WorldConnected)]
+    [GameMessage((GameMessageOpcode)AuctionGameMessageOpcode.CreateSellOrderRequest, SessionState.WorldConnected)]
     public static void Handle(ClientMessage clientMessage, Session session)
     {
         try
@@ -55,19 +55,19 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
 
             var sellOrder = session.Player.CreateAuctionSellOrder(createAuctionSell);
             var successResponse = new JsonResponse<AuctionSellOrder>(data: sellOrder);
-            session.Network.EnqueueSend(new GameMessageAuctionSellResponse(successResponse));
+            session.Network.EnqueueSend(new GameMessageCreateSellOrderResponse(successResponse));
         }
         catch (AuctionFailure ex)
         {
             ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<AuctionSellOrder>(data: null, success: false, errorCode: (int)ex.Code, ex.Message);
-            session.Network.EnqueueSend(new GameMessageAuctionSellResponse(response));
+            session.Network.EnqueueSend(new GameMessageCreateSellOrderResponse(response));
         }
         catch (Exception ex)
         {
             ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<AuctionSellOrder>(data: null, success: false, errorCode: (int)FailureCode.Auction.Unknown, "Internal Server Error!");
-            session.Network.EnqueueSend(new GameMessageAuctionSellResponse(response));
+            session.Network.EnqueueSend(new GameMessageCreateSellOrderResponse(response));
         }
     }
 }
