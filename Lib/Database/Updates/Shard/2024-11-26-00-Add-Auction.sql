@@ -12,7 +12,6 @@ CREATE TABLE auction_listing (
     `sell_order_id` INT UNSIGNED NOT NULL COMMENT 'Reference to AuctionSellOrder',
     `seller_id` INT UNSIGNED NOT NULL,
     `seller_name` VARCHAR(50) NOT NULL,
-    `icon_id` INT UNSIGNED NOT NULL,
     `start_price` INT UNSIGNED NOT NULL,
     `buyout_price` INT UNSIGNED NOT NULL,
     `stack_size` INT UNSIGNED NOT NULL,

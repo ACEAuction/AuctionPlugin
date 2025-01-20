@@ -59,13 +59,13 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
         }
         catch (AuctionFailure ex)
         {
-            ModManager.Log(ex.ToString(), ModManager.LogLevel.Warn);
+            ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<AuctionSellOrder>(data: null, success: false, errorCode: (int)ex.Code, ex.Message);
             session.Network.EnqueueSend(new GameMessageAuctionSellResponse(response));
         }
         catch (Exception ex)
         {
-            ModManager.Log(ex.ToString(), ModManager.LogLevel.Warn);
+            ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<AuctionSellOrder>(data: null, success: false, errorCode: (int)FailureCode.Auction.Unknown, "Internal Server Error!");
             session.Network.EnqueueSend(new GameMessageAuctionSellResponse(response));
         }

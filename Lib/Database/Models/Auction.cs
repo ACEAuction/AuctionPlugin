@@ -37,7 +37,6 @@ public partial class AuctionListing
     public string ItemInfo { get; set; }
     public uint SellerId { get; set; }
     public string SellerName { get; set; }
-    public uint IconId { get; set; }
     public uint StartPrice { get; set; }
     public uint BuyoutPrice { get; set; }
     public uint StackSize { get; set; }
