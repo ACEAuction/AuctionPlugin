@@ -177,6 +177,18 @@ public static class AuctionDatabaseExtensions
         return listing;
     }
 
+    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database, uint accountId)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionListing
+                .AsNoTracking()
+                .Where(auction => auction.Status == AuctionListingStatus.active && auction.SellerId == accountId)
+                .OrderByDescending(item => item.EndTime)
+                .ToList();
+        }
+    }
+
     public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
     {
         using (var context = new AuctionDbContext())

@@ -5,9 +5,10 @@ public static class FailureCode
     public enum Auction: uint 
     {
         Unknown = 0,
-        SellValidation = 18,
-        TransferItemFailure = 19,
-        ProcessSell = 20,
+        SellValidation = 1,
+        TransferItemFailure = 2,
+        ProcessSell = 3,
+        GetListingsRequest = 4,
     }
 }
 

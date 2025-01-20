@@ -241,6 +241,11 @@ public static class AuctionExtensions
         return JsonSerializer.Deserialize<JsonRequest<T>>(jsonString, options);
     }
 
+    public static List<AuctionListing> GetAuctionListings(this Player player)
+    {
+        return DatabaseManager.Shard.BaseDatabase.GetActiveAuctionListings(player.Account.AccountId);
+    }
+
     public class AuctionSellContext
     {
         public List<WorldObject> RemovedItems { get; }
