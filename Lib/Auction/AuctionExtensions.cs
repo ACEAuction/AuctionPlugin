@@ -2,132 +2,77 @@
 using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
-using ACE.Mods.Legend.Lib.Bank;
 using ACE.Server.Command.Handlers;
-using ACE.Server.Entity.Actions;
-using ACE.Server.Factories;
 using ACE.Server.Network.GameMessages.Messages;
 using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
-using ACE.Server.Managers;
-using ACE.Mods.Legend.Lib.CustomContainer;
+using ACE.Mods.Legend.Lib.Database;
+using ACE.Mods.Legend.Lib.Auction.Models;
+using ACE.Mods.Legend.Lib.Database.Models;
+using ACE.Server.Network.GameMessages;
+using ACE.Mods.Legend.Lib.Auction.Network;
+using ACE.Entity;
+using ACE.Mods.Legend.Lib.Common.Spells;
+
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
 public static class AuctionExtensions
 {
-    static Settings Settings => PatchClass.Settings;
 
-    private static readonly ushort MaxAuctionHours = 168; // a week is the longest duration for an auction, this could be a server property
+
+    private static readonly ushort MaxAuctionHours = 168; 
 
     private const string AuctionPrefix = "[AuctionHouse]";
-
-    public static uint GetListingId(this WorldObject item) =>
-        item.GetProperty(FakeIID.ListingId) ?? 0;
-    public static uint GetSellerId(this WorldObject item) =>
-        item.GetProperty(FakeIID.SellerId) ?? 0;
-    public static uint GetListingOwnerId(this WorldObject item) =>
-        item.GetProperty(FakeIID.ListingOwnerId) ?? 0;
-    public static int GetListingStartPrice(this WorldObject item) =>
-        item.GetProperty(FakeInt.ListingStartPrice) ?? 0;
-    public static int GetCurrencyType(this WorldObject item) =>
-        item.GetProperty(FakeInt.ListingCurrencyType) ?? 0;
-    public static int GetHighestBid(this WorldObject item) =>
-        item.GetProperty(FakeInt.ListingHighBid) ?? 0;
-    public static uint GetHighestBidder(this WorldObject item) =>
-        item.GetProperty(FakeIID.HighestBidderId) ?? 0;
-    public static string GetHighestBidderName(this WorldObject item) =>
-        item.GetProperty(FakeString.HighestBidderName) ?? "";
-    public static string GetSellerName(this WorldObject item) =>
-        item.GetProperty(FakeString.SellerName) ?? "";
-    public static string GetListingStatus(this WorldObject item) =>
-        item.GetProperty(FakeString.ListingStatus) ?? "";
-    public static double GetListingStartTimestamp(this WorldObject item) =>
-        item.GetProperty(FakeFloat.ListingStartTimestamp) ?? 0;
-    public static double GetListingEndTimestamp(this WorldObject item) =>
-        item.GetProperty(FakeFloat.ListingEndTimestamp) ?? 0;
-    public static double GetLastFailListingTimestamp(this WorldObject item) =>
-        item.GetProperty(FakeFloat.LastFailedListingTimestamp) ?? 0;
-    public static double GetBidTimestamp(this WorldObject item) =>
-        item.GetProperty(FakeFloat.BidTimestamp) ?? 0;
-    public static uint GetBidOwnerId(this WorldObject item) =>
-        item.GetProperty(FakeIID.BidOwnerId) ?? 0;
-    public static bool GetAuctionTagging(this Player player) =>
-        player.GetProperty(FakeBool.IsAuctionTagging) ?? false;
-    public static bool IsAuctionItemsContainer(this Container item) => item.Name == Constants.AUCTION_ITEMS_CONTAINER_KEYCODE;
 
     public static void SendAuctionMessage(this Player player, string message, ChatMessageType messageType = ChatMessageType.System)
     {
         player.Session.Network.EnqueueSend(new GameMessageSystemChat($"{AuctionPrefix} {message}", messageType));
     }
 
-    public static void ValidateAuctionSell(this Player player, ushort hoursDuration)
+
+    /*private static void ValidateAuctionBid(this Player player, WorldObject listing, uint bidAmount)
     {
-        if (hoursDuration > MaxAuctionHours)
-            throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)");
-    }
-
-    public static void ValidateAuctionTag(this Player player, uint tagId, out WorldObject taggedItem)
-    {
-        if (AuctionManager.TaggedItems.TryGetValue(player.Guid.Full, out var items) && items != null && items.Contains(tagId))
-            throw new AuctionFailure($"The tagged item with Id = {tagId} is already tagged");
-
-        var item = player.FindObject(tagId, SearchLocations.MyInventory | SearchLocations.MyEquippedItems, out var itemFoundInContainer, out var itemRootOwner, out var itemWasEquipped);
-
-        if (item == null)
-            throw new AuctionFailure($"The tagged item with Id = {tagId} was not found on your person");
-
-        if (item.IsAttunedOrContainsAttuned)
-            throw new AuctionFailure($"{item.NameWithMaterial} cannot be tagged, it is attuned or bonded");
-
-        if (player.IsTrading && item.IsBeingTradedOrContainsItemBeingTraded(player.ItemsInTradeWindow))
-            throw new AuctionFailure($"The item {item.NameWithMaterial} cannot be tagged, the item is currently being traded");
-
-        taggedItem = item;
-    }
-
-    private static void ValidateAuctionBid(this Player player, WorldObject listing, uint bidAmount)
-    {
-        if(listing.GetListingStatus() != "active")
-            throw new AuctionFailure($"Failed to place auction bid, the listing for this bid is not currently active");
+        if (listing.GetListingStatus() != "active")
+            throw new AuctionFailure($"Failed to place auction bid, the listing for this bid is not currently active", FailureCode.Auction.Unknown);
 
         var sellerId = listing.GetSellerId();
 
-        if (sellerId > 0 && sellerId == player.Account.AccountId) 
-            throw new AuctionFailure($"Failed to place auction bid, you cannot bid on items you are selling");
+        if (sellerId > 0 && sellerId == player.Account.AccountId)
+            throw new AuctionFailure($"Failed to place auction bid, you cannot bid on items you are selling", FailureCode.Auction.Unknown);
 
         if (listing.GetHighestBidder() == player.Account.AccountId)
-            throw new AuctionFailure($"Failed to place auction bid, you are already the highest bidder");
+            throw new AuctionFailure($"Failed to place auction bid, you are already the highest bidder", FailureCode.Auction.Unknown);
 
         var listingHighBid = listing.GetHighestBid();
 
         if (listingHighBid > 0 && listingHighBid > bidAmount)
-            throw new AuctionFailure($"Failed to place auction bid, your bid isn't high enough");
+            throw new AuctionFailure($"Failed to place auction bid, your bid isn't high enough", FailureCode.Auction.Unknown);
 
         var currencyType = listing.GetCurrencyType();
 
         if (currencyType == 0)
-            throw new AuctionFailure($"Failed to place auction bid, this listing does not have a currency type");
+            throw new AuctionFailure($"Failed to place auction bid, this listing does not have a currency type", FailureCode.Auction.Unknown);
 
         var listingStartPrice = listing.GetListingStartPrice();
 
         var endTime = listing.GetListingEndTimestamp();
 
         if (endTime > 0 && Time.GetDateTimeFromTimestamp(endTime) < DateTime.UtcNow)
-            throw new AuctionFailure($"Failed to place auction bid, this listing has already expired");
+            throw new AuctionFailure($"Failed to place auction bid, this listing has already expired", FailureCode.Auction.Unknown);
 
         var numOfItems = player.GetNumInventoryItemsOfWCID((uint)currencyType);
 
         if (bidAmount < listingStartPrice)
-            throw new AuctionFailure($"Failed to place auction bid, your bid amount is less than the starting price");
+            throw new AuctionFailure($"Failed to place auction bid, your bid amount is less than the starting price", FailureCode.Auction.Unknown);
 
-        if (numOfItems < listingHighBid || numOfItems < listingStartPrice )
-            throw new AuctionFailure($"Failed to place auction bid, you do not have enough currency items to bid on this listing");
+        if (numOfItems < listingHighBid || numOfItems < listingStartPrice)
+            throw new AuctionFailure($"Failed to place auction bid, you do not have enough currency items to bid on this listing", FailureCode.Auction.Unknown);
     }
 
     public static void PlaceAuctionBid(this Player player, uint listingId, uint bidAmount)
     {
-        var listing = AuctionManager.GetListingById(listingId) ?? throw new AuctionFailure($"Listing with Id = {listingId} does not exist");
+        var listing = AuctionManager.GetListingById(listingId) ?? throw new AuctionFailure($"Listing with Id = {listingId} does not exist", FailureCode.Auction.Unknown);
 
         List<WorldObject> newBidItems = new List<WorldObject>();
 
@@ -165,7 +110,7 @@ public static class AuctionExtensions
         {
             if (!AuctionManager.TryRemoveFromInventory(item) ||
                 !BankManager.TryAddToInventory(item, previousBidderId))
-                throw new AuctionFailure($"Failed to process previous bid items for listing {listing.Guid.Full}");
+                throw new AuctionFailure($"Failed to process previous bid items for listing {listing.Guid.Full}", FailureCode.Auction.Unknown);
 
             ResetBidItemProperties(item, previousBidderId);
         }
@@ -194,14 +139,14 @@ public static class AuctionExtensions
             ConfigureBidItem(removedItem, player.Account.AccountId, listing.Guid.Full, bidTime);
 
             if (!AuctionManager.TryAddToInventory(removedItem))
-                throw new AuctionFailure($"Failed to add bid item to Auction Items Chest");
+                throw new AuctionFailure($"Failed to add bid item to Auction Items Chest", FailureCode.Auction.Unknown);
 
             remainingAmount -= amount;
             newBidItems.Add(removedItem);
         }
 
         if (remainingAmount > 0)
-            throw new AuctionFailure($"Insufficient bid items to meet the bid amount for listing {listing.GetListingId()}");
+            throw new AuctionFailure($"Insufficient bid items to meet the bid amount for listing {listing.GetListingId()}", FailureCode.Auction.Unknown);
     }
 
     private static void ConfigureBidItem(WorldObject item, uint bidderId, uint listingId, DateTime bidTime)
@@ -270,155 +215,113 @@ public static class AuctionExtensions
             AuctionManager.TryRemoveFromInventory(item);
             player.TryCreateInInventoryWithNetworking(item);
         }
+    }*/
+
+    public static void WriteJson<T>(this GameMessage message, JsonResponse<T> response)
+    {
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        string jsonString = JsonSerializer.Serialize(response, options);
+        var length = jsonString.Length;
+        message.Writer.Write(length);
+        message.Writer.Write(Encoding.UTF8.GetBytes(jsonString));
     }
 
-    public class AuctionSellState
+    public static JsonRequest<T>? ReadJson<T>(this ClientMessage message)
+    {
+        int length = message.Payload.ReadInt32();
+
+        var jsonString = message.Payload.ReadString();
+        //byte[] buffer = message.Payload.ReadBytes(length);
+        //string jsonString = Encoding.UTF8.GetString(buffer);
+
+        ModManager.Log($"Logging ReadJson() string payload");
+        ModManager.Log(jsonString);
+
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        return JsonSerializer.Deserialize<JsonRequest<T>>(jsonString, options);
+    }
+
+    public class AuctionSellContext
     {
         public List<WorldObject> RemovedItems { get; }
-        public Book ListingParchment { get; }
-        public string CurrencyName { get; }
+        public AuctionSellOrder SellOrder { get; set; }
+        public CreateSellOrder CreateSellOrder { get;}
         public TimeSpan RemainingTime { get; }
 
-        public AuctionSellState(List<WorldObject> removedItems, Book listingParchment, string currencyName, TimeSpan remainingTime)
+        public AuctionSellContext(List<WorldObject> removedItems, CreateSellOrder auctionSell, TimeSpan remainingTime)
         {
             RemovedItems = removedItems ?? throw new ArgumentNullException(nameof(removedItems));
-            ListingParchment = listingParchment ?? throw new ArgumentNullException(nameof(listingParchment));
-            CurrencyName = currencyName ?? throw new ArgumentNullException(nameof(currencyName));
             RemainingTime = remainingTime;
+            CreateSellOrder = auctionSell;
         }
     }
 
-    public static void PlaceAuctionSell(this Player player, List<uint> itemList, uint currencyType, uint startPrice, ushort hoursDuration)
+    public static AuctionSellOrder CreateAuctionSellOrder(this Player player, CreateSellOrder createSellOrder)
     {
-        var startTime = DateTime.UtcNow;
+        var remainingTime = createSellOrder.EndTime - createSellOrder.StartTime;
 
-        var endTime = Settings.IsDev ? startTime.AddSeconds(hoursDuration) : startTime.AddHours(hoursDuration);
-        Book listingParchment = (Book)WorldObjectFactory.CreateNewWorldObject(365);
-        string currencyName = GetCurrencyName(currencyType);
-
-        var state = new AuctionSellState(
+        var sellContext = new AuctionSellContext(
             new List<WorldObject>(),
-            listingParchment,
-            currencyName,
-            endTime - startTime
+            createSellOrder,
+            remainingTime
         );
 
-        try
-        {
-            player.ValidateAuctionSell(hoursDuration);
-            InitializeListingParchment(player, currencyType, startPrice, startTime, endTime, state);
-            RemoveItemsForListing(player, itemList, state);
-            TransferItemsToAuctionContainer(state);
-            AddListingToAuctionContainer(state);
-            FinalizeAuctionListing(player, state);
-            player.ClearTags();
-        }
-        catch (AuctionFailure ex)
-        {
-            HandleAuctionSellFailure(player, state, ex.Message);
-        }
-    }
-
-    private static string GetCurrencyName(uint currencyType)
-    {
-        var weenie = DatabaseManager.World.GetCachedWeenie(currencyType);
-        if (weenie == null)
-            throw new AuctionFailure($"Failed to get currency name from weenie with Id = {currencyType}");
-        return weenie.GetName();
-    }
-
-    private static void InitializeListingParchment(Player player, uint currencyType, uint startPrice, DateTime startTime, DateTime endTime, AuctionSellState state)
-    {
-        var parchment = state.ListingParchment;
-
-        parchment.Name = "Auction Listing Invoice";
-        parchment.SetProperty(FakeIID.SellerId, player.Account.AccountId);
-        parchment.SetProperty(FakeString.SellerName, player.Name);
-        parchment.SetProperty(FakeInt.ListingCurrencyType, (int)currencyType);
-        parchment.SetProperty(FakeInt.ListingStartPrice, (int)startPrice);
-        parchment.SetProperty(FakeFloat.ListingStartTimestamp, (double)Time.GetUnixTime(startTime));
-        parchment.SetProperty(FakeFloat.ListingEndTimestamp, (double)Time.GetUnixTime(endTime));
-        parchment.SetProperty(FakeString.ListingStatus, "active");
-
-        ModManager.Log($"[AuctionHouse] Initialized listing parchment with Id = {parchment.Guid.Full}", ModManager.LogLevel.Warn);
-    }
-
-    private static void RemoveItemsForListing(Player player, List<uint> itemList, AuctionSellState state)
-    {
-        foreach (var itemId in itemList)
-        {
-            player.RemoveItemForTransfer(itemId, out var removedItem);
-            removedItem.SetProperty(FakeIID.ListingId, state.ListingParchment.Guid.Full);
-            removedItem.SetProperty(FakeIID.ListingOwnerId, player.Account.AccountId);
-            state.RemovedItems.Add(removedItem);
-        }
-    }
-
-    private static void TransferItemsToAuctionContainer(AuctionSellState state)
-    {
-        foreach (var item in state.RemovedItems)
-        {
-            if (item == null || !AuctionManager.TryAddToInventory(item))
+        return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
+            executeAction: dbContext =>
             {
-                throw new AuctionFailure($"Failed to transfer listing item {item?.NameWithMaterial} to the auction items container.");
-            }
-        }
-    }
+                var sellOrder = DatabaseManager.Shard.BaseDatabase.PlaceAuctionSellOrder(dbContext, createSellOrder);
+                sellContext.SellOrder = sellOrder;
 
-    private static void AddListingToAuctionContainer(AuctionSellState state)
-    {
-        if (!AuctionManager.ListingsContainer.TryAddToInventory(state.ListingParchment))
-        {
-            throw new AuctionFailure($"Failed to transfer listing parchment {state.ListingParchment.NameWithMaterial} to the auction items container.");
-        }
-    }
-    private static void FinalizeAuctionListing(Player player, AuctionSellState state)
-    {
-        var remaining = Helpers.FormatTimeRemaining(state.RemainingTime);
-        player.SendAuctionMessage($"Successfully created an auction listing with Id = {state.ListingParchment.Guid.Full}, Seller = {player.Name}, Currency = {state.CurrencyName}, TimeRemaining = {remaining}", ChatMessageType.Broadcast);
-
-        foreach (var item in state.RemovedItems)
-        {
-            var message = $"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}, Count = {item.StackSize ?? 1}";
-            player.SendAuctionMessage(message);
-        }
-        player.SetProperty(FakeBool.IsAuctionTagging, false);
-        player.SendAuctionMessage("auction tagging has been disabled");
-    }
-
-    private static void HandleAuctionSellFailure(Player player, AuctionSellState state, string errorMessage)
-    {
-        ModManager.Log(errorMessage, ModManager.LogLevel.Error);
-        player.SendAuctionMessage("Placing auction listing failed");
-        player.SendAuctionMessage(errorMessage);
-
-        foreach (var removedItem in state.RemovedItems)
-        {
-            removedItem.RemoveProperty(FakeIID.ListingId);
-
-            if (!player.HasItemOnPerson(removedItem.Guid.Full, out _))
+                ProcessSell(player, sellContext, dbContext);
+                return sellOrder; 
+            },
+            failureAction: exception =>
             {
-                var actionChain = new ActionChain();
-                actionChain.AddDelaySeconds(0.5);
-                actionChain.AddAction(player, () =>
+                if (exception is AuctionFailure)
                 {
-                    player.SendAuctionMessage($"Attempting to return listing item {removedItem.NameWithMaterial}");
-                    AuctionManager.TryRemoveFromInventory(removedItem);
+                    HandleCreateSellOrderFailure(player, sellContext, exception.Message);
+                }
+            });
+    }
 
-                    if (!player.TryCreateInInventoryWithNetworking(removedItem))
-                    {
-                        player.SendAuctionMessage($"Failed to return listing item {removedItem.NameWithMaterial}, attempting to send it to the bank.");
-                        BankManager.TryAddToInventory(removedItem, player.Account.AccountId);
-                    }
+    private static void ProcessSell(Player player, AuctionSellContext sellContext, AuctionDbContext dbContext)
+    {
+        var numOfStacks = sellContext.CreateSellOrder.NumberOfStacks;
+        var stackSize = sellContext.CreateSellOrder.StackSize;
 
-                    player.EnqueueBroadcast(new GameMessageSound(player.Guid, Sound.ReceiveItem));
-                });
-                actionChain.EnqueueChain();
-            }
+        if (sellContext.CreateSellOrder.HoursDuration > MaxAuctionHours)
+            throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)", FailureCode.Auction.SellValidation);
+
+        var sellItem = player.GetInventoryItem(sellContext.CreateSellOrder.ItemId)
+            ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ProcessSell);
+
+        sellContext.CreateSellOrder.ItemIconId = sellItem.IconId;
+        sellContext.CreateSellOrder.ItemInfo = sellItem.BuildItemInfo();
+
+        if (sellItem.ItemWorkmanship != null && (numOfStacks > 1 || stackSize > 1))
+            throw new AuctionFailure("A loot-generated item cannot be traded if the number of stacks is greater than 1.", FailureCode.Auction.ProcessSell);
+
+        var totalStacks = numOfStacks * stackSize; 
+
+        if (totalStacks > sellItem.StackSize)
+            throw new AuctionFailure("The item does not have enough stacks to complete the auction sale.", FailureCode.Auction.ProcessSell);
+
+        var sellItemMaxStackSize = sellItem.MaxStackSize ?? 1;
+
+        for (var i = 0; i < numOfStacks; i++)
+        {
+            player.RemoveItemForTransfer(sellItem.Guid.Full, out WorldObject removedItem, (int?)stackSize);
+            sellContext.RemovedItems.Add(removedItem);
+            DatabaseManager.Shard.BaseDatabase.PlaceAuctionListing(dbContext, removedItem.Guid.Full, sellContext.SellOrder.Id, sellContext.CreateSellOrder);
         }
+    }
 
-        player.TryConsumeFromInventoryWithNetworking(state.ListingParchment.Guid.Full);
-        state.ListingParchment.Destroy();
+    private static void HandleCreateSellOrderFailure(Player player, AuctionSellContext sellContext, string errorMessage)
+    {
+        foreach (var removedItem in sellContext.RemovedItems)
+        {
+            DatabaseManager.Shard.BaseDatabase.SendMailItem(sellContext.CreateSellOrder.SellerId, removedItem.Guid.Full, "Auction House");
+        }
     }
 
     public static bool HasItemOnPerson(this Player player, uint itemId, out WorldObject foundItem)
@@ -427,138 +330,304 @@ public static class AuctionExtensions
         return foundItem != null;
     }
 
-    public static void RemoveItemForTransfer(this Player player, uint itemToTransfer, out WorldObject itemToRemove, int? amount = null)
+    private static void RemoveItemForTransfer(this Player player, uint itemToTransfer, out WorldObject itemToRemove, int? amount = null)
     {
         if (player.IsBusy || player.Teleporting || player.suicideInProgress)
-            throw new ItemTransferFailure($"The item cannot be transferred, you are too busy");
+            throw new AuctionFailure($"The item cannot be transferred, you are too busy", FailureCode.Auction.TransferItemFailure);
 
         var item = player.FindObject(itemToTransfer, SearchLocations.MyInventory | SearchLocations.MyEquippedItems, out var itemFoundInContainer, out var itemRootOwner, out var itemWasEquipped);
 
         if (item == null)
-            throw new ItemTransferFailure($"The item cannot be transferred, item with Id = {itemToTransfer} was not found on your person");
+            throw new AuctionFailure($"The item cannot be transferred, item with Id = {itemToTransfer} was not found on your person", FailureCode.Auction.TransferItemFailure);
 
         if (item.IsAttunedOrContainsAttuned)
-            throw new ItemTransferFailure($"The item cannot be transferred {item.NameWithMaterial} is attuned");
+            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial} is attuned", FailureCode.Auction.TransferItemFailure);
 
         if (player.IsTrading && item.IsBeingTradedOrContainsItemBeingTraded(player.ItemsInTradeWindow))
-            throw new ItemTransferFailure($"The item cannot be transferred {item.NameWithMaterial}, the item is currently being traded");
+            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, the item is currently being traded", FailureCode.Auction.TransferItemFailure);
 
         var removeAmount = amount.HasValue ? amount.Value : item.StackSize ?? 1;
 
         if (!player.RemoveItemForGive(item, itemFoundInContainer, itemWasEquipped, itemRootOwner, removeAmount, out WorldObject itemToGive))
-            throw new ItemTransferFailure($"The item cannot be transferred {item.NameWithMaterial}, failed to remove item from location");
+            throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, failed to remove item from location", FailureCode.Auction.TransferItemFailure);
 
         itemToRemove = itemToGive;
     }
 
-    public static void InspectTagItem(this Player player, uint itemId)
+      public static Position LocToPosition(this Position pos, string location)
     {
-        try
+        var parameters = location.Split(' ');
+        uint cell;
+
+        if (parameters[0].StartsWith("0x"))
         {
-            player.ValidateAuctionTag(itemId, out WorldObject item);
-            player.SendAuctionMessage($"Auction Tag Information, Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}", ChatMessageType.Broadcast);
-            player.AddTagItem(itemId);
-        } catch(AuctionFailure ex)
-        {
-            player.SendAuctionMessage(ex.Message);
-        }
-
-    }
-
-    public static void AddTagItem(this Player player, uint itemId)
-    {
-        player.ValidateAuctionTag(itemId, out WorldObject item);
-
-        AuctionManager.TaggedItems.AddOrUpdate(
-            player.Guid.Full,
-            _ => new HashSet<uint> { itemId },
-            (_, existingSet) =>
-            {
-                lock (existingSet)
-                {
-                    existingSet.Add(itemId);
-                }
-                return existingSet;
-            }
-        );
-
-        player.SendAuctionMessage($"Added tagged listing item {item.NameWithMaterial}", ChatMessageType.Broadcast);
-    }
-
-    public static void ListTags(this Player player)
-    {
-        if (AuctionManager.TaggedItems.TryGetValue(player.Guid.Full, out var items) && items.Count > 0)
-        {
-            StringBuilder message = new StringBuilder();
-
-            lock (items)
-            {
-                message.Append("^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-                message.Append("Auction Sell Tagged List\n");
-                message.Append("-------------------------\n");
-                foreach (var id in items)
-                {
-                    var item = player.FindObject(id, SearchLocations.MyInventory | SearchLocations.MyEquippedItems, out var itemFoundInContainer, out var itemRootOwner, out var itemWasEquipped);
-
-                    if (item == null)
-                        message.Append($"--> Id = {id}  Unable to find item\n");
-                    else
-                        message.Append($"--> Id = {item.Guid.Full}, {Helpers.BuildItemInfo(item)}\n");
-
-                    message.Append("-------------------------\n");
-                }
-                message.Append("^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-            }
-
-            CommandHandlerHelper.WriteOutputInfo(player.Session, message.ToString(), ChatMessageType.Broadcast);
+            string strippedcell = parameters[0].Substring(2);
+            cell = (uint)int.Parse(strippedcell, System.Globalization.NumberStyles.HexNumber);
         }
         else
-            player.Session.Network.EnqueueSend(new GameMessageSystemChat("You don't have any tagged items", ChatMessageType.System));
+            cell = (uint)int.Parse(parameters[0], System.Globalization.NumberStyles.HexNumber);
+
+        var positionData = new float[7];
+        for (uint i = 0u; i < 7u; i++)
+        {
+            if (i > 2 && parameters.Length < 8)
+            {
+                positionData[3] = 1;
+                positionData[4] = 0;
+                positionData[5] = 0;
+                positionData[6] = 0;
+                break;
+            }
+
+            if (!float.TryParse(parameters[i + 1].Trim(new char[] { ' ', '[', ']' }), out var position))
+                throw new Exception();
+
+            positionData[i] = position;
+        }
+
+        return new Position(cell, positionData[0], positionData[1], positionData[2], positionData[4], positionData[5], positionData[6], positionData[3]);
     }
 
-    public static void RemoveTagItem(this Player player, uint itemId)
+    public static string BuildItemInfo(this WorldObject wo)
     {
-        lock (AuctionManager.TaggedItems)
+        StringBuilder sb = new StringBuilder();
+
+        sb.Append($"{wo.NameWithMaterial}");
+
+        var weaponType = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WeaponType);
+        if (weaponType.HasValue && weaponType.Value > 0)
         {
-            if (AuctionManager.TaggedItems.TryGetValue(player.Guid.Full, out var items))
+            sb.Append(", ");
+            if (Constants.Dictionaries.MasteryInfo.ContainsKey(weaponType.Value))
+                sb.Append($"({Constants.Dictionaries.MasteryInfo[weaponType.Value]})");
+            else
+                sb.Append("(Unknown mastery)");
+        }
+
+        var equipSet = wo.GetProperty(Entity.Enum.Properties.PropertyInt.EquipmentSetId);
+        if (equipSet.HasValue && equipSet.Value > 0)
+        {
+            sb.Append(", ");
+            if (Constants.Dictionaries.AttributeSetInfo.ContainsKey(equipSet.Value))
+                sb.Append(Constants.Dictionaries.AttributeSetInfo[equipSet.Value]);
+            else
+                sb.Append($"Unknown set {equipSet.Value}");
+        }
+
+        var armorLevel = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ArmorLevel);
+        if (armorLevel.HasValue && armorLevel.Value > 0)
+            sb.Append($", AL {armorLevel.Value}");
+
+        var imbued = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ImbuedEffect);
+        if (imbued.HasValue && imbued.Value > 0)
+        {
+            sb.Append(",");
+            if ((imbued.Value & 1) == 1) sb.Append(" CS");
+            if ((imbued.Value & 2) == 2) sb.Append(" CB");
+            if ((imbued.Value & 4) == 4) sb.Append(" AR");
+            if ((imbued.Value & 8) == 8) sb.Append(" SlashRend");
+            if ((imbued.Value & 16) == 16) sb.Append(" PierceRend");
+            if ((imbued.Value & 32) == 32) sb.Append(" BludgeRend");
+            if ((imbued.Value & 64) == 64) sb.Append(" AcidRend");
+            if ((imbued.Value & 128) == 128) sb.Append(" FrostRend");
+            if ((imbued.Value & 256) == 256) sb.Append(" LightRend");
+            if ((imbued.Value & 512) == 512) sb.Append(" FireRend");
+            if ((imbued.Value & 1024) == 1024) sb.Append(" MeleeImbue");
+            if ((imbued.Value & 4096) == 4096) sb.Append(" MagicImbue");
+            if ((imbued.Value & 8192) == 8192) sb.Append(" Hematited");
+            if ((imbued.Value & 536870912) == 536870912) sb.Append(" MagicAbsorb");
+        }
+
+
+        var numberOfTinks = wo.GetProperty(Entity.Enum.Properties.PropertyInt.NumTimesTinkered);
+        if (numberOfTinks.HasValue && numberOfTinks.Value > 0)
+            sb.Append($", Tinks {numberOfTinks.Value}");
+
+        var maxDamage = wo.GetProperty(Entity.Enum.Properties.PropertyInt.Damage);
+        var variance = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.DamageVariance);
+
+        if (weaponType.HasValue && maxDamage.HasValue && maxDamage.Value > 0 && variance.HasValue && variance.Value > 0)
+        {
+            sb.Append($", {((maxDamage.Value) - (maxDamage.Value * variance.Value)).ToString("N2")}-{maxDamage.Value}");
+        }
+        else if (maxDamage.HasValue && maxDamage != 0 && variance == 0)
+        {
+            sb.Append($", {maxDamage.Value}");
+        }
+
+        var elemBonus = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ElementalDamageBonus);
+        if (elemBonus.HasValue && elemBonus.Value > 0)
+            sb.Append($", {elemBonus.Value}");
+
+        var damageMod = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.DamageMod);
+        if (damageMod.HasValue && damageMod.Value != 1)
+            sb.Append($", {Math.Round((damageMod.Value - 1) * 100)}%");
+
+        var eleDamageMod = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.ElementalDamageMod);
+        if (eleDamageMod.HasValue && eleDamageMod.Value != 1)
+            sb.Append($", {Math.Round((eleDamageMod.Value - 1) * 100)}%vs. Monsters");
+
+        var attackBonus = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.WeaponOffense);
+        if (attackBonus.HasValue && attackBonus.Value != 1)
+            sb.Append($", {Math.Round((attackBonus.Value - 1) * 100)}%a");
+
+        var meleeBonus = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.WeaponDefense);
+        if (meleeBonus.HasValue && meleeBonus.Value != 1)
+            sb.Append($", {Math.Round((meleeBonus.Value - 1) * 100)}%md");
+
+        var magicBonus = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.WeaponMagicDefense);
+        if (magicBonus.HasValue && magicBonus.Value != 1)
+            sb.Append($", {Math.Round((magicBonus.Value - 1) * 100)}%mgc.d");
+
+        var missileBonus = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.WeaponMissileDefense);
+        if (missileBonus.HasValue && missileBonus.Value != 1)
+            sb.Append($", {Math.Round((missileBonus.Value - 1) * 100)}%msl.d");
+
+        var manacBonus = wo.GetProperty(Entity.Enum.Properties.PropertyFloat.ManaConversionMod);
+        if (manacBonus.HasValue && manacBonus.Value != 1)
+            sb.Append($", {Math.Round((manacBonus.Value) * 100)}%mc");
+
+        List<int> spells = wo.Biota.GetKnownSpellsIds(wo.BiotaDatabaseLock);
+
+        if (spells.Count > 0)
+        {
+            spells.Sort();
+            spells.Reverse();
+
+            foreach (int spell in spells)
             {
-                if (items.Remove(itemId))
+                var spellById = SpellTools.GetSpell(spell);
+
+                // If the item is not loot generated, show all spells
+                var material = wo.GetProperty(Entity.Enum.Properties.PropertyInt.MaterialType);
+                if (material == null)
+                    goto ShowSpell;
+
+                // Always show Minor/Major/Epic Impen
+                if (spellById.Name.Contains("Minor Impenetrability") || spellById.Name.Contains("Major Impenetrability") || spellById.Name.Contains("Epic Impenetrability") || spellById.Name.Contains("Legendary Impenetrability"))
+                    goto ShowSpell;
+
+                // Always show trinket spells
+                if (spellById.Name.Contains("Augmented"))
+                    goto ShowSpell;
+
+                var resistMagic = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ResistMagic);
+                if (resistMagic.HasValue && resistMagic.Value >= 9999)
                 {
-                    player.SendAuctionMessage($"You have removed item with Id = {itemId} from your tagged list");
+                    // Show banes and impen on unenchantable equipment
+                    if (spellById.Name.Contains(" Bane") || spellById.Name.Contains("Impen") || spellById.Name.StartsWith("Brogard"))
+                        goto ShowSpell;
                 }
                 else
                 {
-                    player.SendAuctionMessage($"Item with Id = {itemId} was not found in your tagged list");
+                    // Hide banes and impen on enchantable equipment
+                    if (spellById.Name.Contains(" Bane") || spellById.Name.Contains("Impen") || spellById.Name.StartsWith("Brogard"))
+                        continue;
                 }
+
+                if ((spellById.Family >= 152 && spellById.Family <= 158) || spellById.Family == 195 || spellById.Family == 325)
+                {
+                    // This is a weapon buff
+
+                    // Lvl 6
+                    if (spellById.Difficulty == 250)
+                        continue;
+
+                    // Lvl 7
+                    if (spellById.Difficulty == 300)
+                        goto ShowSpell;
+
+                    // Lvl 8+
+                    if (spellById.Difficulty >= 400)
+                        goto ShowSpell;
+
+                    continue;
+                }
+
+                // This is not a weapon buff.
+
+                // Filter all 1-5 spells
+                if (spellById.Name.EndsWith(" I") || spellById.Name.EndsWith(" II") || spellById.Name.EndsWith(" III") || spellById.Name.EndsWith(" IV") || spellById.Name.EndsWith(" V"))
+                    continue;
+
+                // Filter 6's
+                if (spellById.Name.EndsWith(" VI"))
+                    continue;
+
+                // Filter 7's
+                if (spellById.Difficulty == 300)
+                    continue;
+
+                // Filter 8's
+                if (spellById.Name.Contains("Incantation"))
+                    continue;
+
+                ShowSpell:
+
+                sb.Append(", " + spellById.Name);
             }
+        }
+
+        var weaponSkill = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WeaponSkill);
+        var wieldDiff = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WieldDifficulty);
+        if (!weaponSkill.HasValue || weaponSkill.Value == (int)Skill.None)
+        {
+            var wieldLevelReq = wo.GetProperty(Entity.Enum.Properties.PropertyInt.WieldRequirements);
+            if (wieldLevelReq.HasValue && wieldLevelReq.Value == (int)WieldRequirement.Level && wieldDiff.HasValue && wieldDiff.Value > 0)
+            {
+                sb.Append($", Wield Lvl {wieldDiff.Value}");
+            }
+        } else
+        {
+            if (Constants.Dictionaries.SkillInfo.ContainsKey(weaponSkill.Value) && wieldDiff.HasValue)
+                sb.Append($", {Constants.Dictionaries.SkillInfo[weaponSkill.Value]} {wieldDiff.Value}");
             else
-            {
-                player.SendAuctionMessage($"You can't remove item with Id = {itemId}, you don't have a tagged list");
-            }
+                sb.Append($", UnknownSkill: {weaponSkill.Value}");
         }
-    }
 
-    public static void ClearTags(this Player player)
-    {
-        lock (AuctionManager.TaggedItems)
-        {
-            if (AuctionManager.TaggedItems.TryGetValue(player.Guid.Full, out var items))
-            {
-                items.Clear();
-            }
+        var useReqLevel = wo.GetProperty(Entity.Enum.Properties.PropertyInt.UseRequiresLevel);
 
-            player.SendAuctionMessage($"You have cleared your tagged list");
-        }
-    }
-    public static void TagAllInventory(this Player player)
-    {
-        foreach(var item in player.Inventory.Values.ToList())
+        if (useReqLevel.HasValue && useReqLevel.Value > 0)
         {
-            try
-            {
-                player.AddTagItem(item.Guid.Full);
-            } catch { }
+            sb.Append($", Lvl {useReqLevel.Value}");
         }
+
+        var itemSkillLevelLimit = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ItemSkillLevelLimit);
+        var itemSkillLimit = wo.ItemSkillLimit;
+
+        if (itemSkillLimit.HasValue && itemSkillLevelLimit.HasValue)
+        {
+            if (Constants.Dictionaries.SkillInfo.ContainsKey((int)itemSkillLimit.Value))
+                sb.Append($", {Constants.Dictionaries.SkillInfo[(int)itemSkillLimit.Value]} {itemSkillLevelLimit.Value}");
+            else
+                sb.Append($", Unknown skill{itemSkillLimit.Value}");
+        }
+
+
+        var itemDiff = wo.GetProperty(Entity.Enum.Properties.PropertyInt.ItemDifficulty);
+
+        if (itemDiff.HasValue && itemDiff.Value > 0)
+        {
+            sb.Append($", Diff {itemDiff.Value}");
+        }
+
+        if (wo.ItemType == ItemType.TinkeringMaterial && wo.Workmanship.HasValue)
+        {
+            sb.Append($", Work {wo.Workmanship.Value.ToString("N2")}");
+        }
+        else
+        {
+            if (wo.ItemWorkmanship > 0 && wo.NumTimesTinkered != 10)
+                sb.Append($", Craft {wo.Workmanship}");
+        }
+
+        if (wo.Value > 0)
+            sb.Append($", Value {wo.Value:n0}");
+
+        if (wo.EncumbranceVal > 0)
+            sb.Append($", BU {wo.EncumbranceVal:n0}");
+
+        return sb.ToString();
     }
 
 }

@@ -1,28 +1,30 @@
 ﻿namespace ACE.Mods.Legend.Lib.Common.Errors;
 
-public class AuctionFailure : Exception
+public static class FailureCode
 {
-    private const string Prefix = "[AuctionFailure]";
-
-    public AuctionFailure() : base($"{Prefix} Generic Auction Exception.") { }
-
-    public AuctionFailure(string message)
-        : base($"{Prefix} {message}") { }
-
-    public AuctionFailure(string message, Exception innerException)
-        : base($"{Prefix} {message}", innerException) { }
+    public enum Auction: uint 
+    {
+        Unknown = 0,
+        SellValidation = 18,
+        TransferItemFailure = 19,
+        ProcessSell = 20,
+    }
 }
 
-public class ItemTransferFailure : Exception
+public abstract class ChoriziteFailure: Exception
 {
-    private const string Prefix = "[ItemTransfer]";
+    public readonly uint Code;
 
-    public ItemTransferFailure()
-        : base($"{Prefix} Generic item transfer Exception.") { }
+    public ChoriziteFailure(string message, uint code) : base($"{message}")
+    {
+        Code = code;
+    }
+}
 
-    public ItemTransferFailure(string message)
-        : base($"{Prefix} {message}") { }
 
-    public ItemTransferFailure(string message, Exception innerException)
-        : base($"{Prefix} {message}", innerException) { }
+public class AuctionFailure : ChoriziteFailure
+{
+    public AuctionFailure(string message, FailureCode.Auction code) : base(message, (uint)code)
+    {
+    }
 }

@@ -39,7 +39,6 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Lib.Harmony" Version="2.3.3" ExcludeAssets="runtime" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -69,10 +68,20 @@
 			<Private>False</Private>
 		</Reference>
 
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational">
+		  <HintPath>C:\ACE\Server\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+		</Reference>
+
+		<Reference Include="MySqlConnector">
+		  <HintPath>C:\ACE\Server\MySqlConnector.dll</HintPath>
+		  <Private>False</Private>
+		</Reference>
+
 		<Reference Include="Microsoft.EntityFrameworkCore">
 			<HintPath>C:\ACE\Server\Microsoft.EntityFrameworkCore.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+
 	</ItemGroup>
 
 	<ItemGroup>
@@ -82,5 +91,11 @@
 		<None Update="Meta.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Lib\Database\Updates\Shard\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 </Project>
