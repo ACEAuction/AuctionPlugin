@@ -38,8 +38,7 @@ public static class AuctionDatabaseExtensions
                 catch (Exception ex)
                 {
                     stopwatch.Stop();
-                    ModManager.Log($"[DATABASE] Transaction failed after {stopwatch.Elapsed.TotalSeconds:F4} seconds using isolation level {isolationLevel}, rolling back.", ModManager.LogLevel.Warn);
-                    ModManager.Log(ex.ToString(), ModManager.LogLevel.Warn);
+                    ModManager.Log($"[DATABASE] Transaction failed after {stopwatch.Elapsed.TotalSeconds:F4} seconds using isolation level {isolationLevel}, rolling back.", ModManager.LogLevel.Error);
 
                     try
                     {
@@ -111,7 +110,7 @@ public static class AuctionDatabaseExtensions
         }
     }
 
-    public static AuctionSellOrder PlaceAuctionSellOrder(this ShardDatabase database, AuctionDbContext context, CreateAuctionSell createAuctionSell)
+    public static AuctionSellOrder PlaceAuctionSellOrder(this ShardDatabase database, AuctionDbContext context, CreateSellOrder createAuctionSell)
     {
         if (context == null) throw new ArgumentNullException(nameof(context));
 
@@ -126,7 +125,7 @@ public static class AuctionDatabaseExtensions
 
         return sellOrder;
     }
-    public static AuctionListing PlaceAuctionListing(this ShardDatabase database, AuctionDbContext context, uint itemId, uint sellOrderId, CreateAuctionSell createAuctionSell)
+    public static AuctionListing PlaceAuctionListing(this ShardDatabase database, AuctionDbContext context, uint itemId, uint sellOrderId, CreateSellOrder createAuctionSell)
     {
         if (context == null) throw new ArgumentNullException(nameof(context));
 
@@ -136,11 +135,15 @@ public static class AuctionDatabaseExtensions
             SellerId = createAuctionSell.SellerId,
             SellerName = createAuctionSell.SellerName,
             SellOrderId = sellOrderId,
-            IconId = createAuctionSell.CurrencyWeenie.GetProperty(Entity.Enum.Properties.PropertyDataId.Icon) ?? 0,
             ItemId = itemId,
+            ItemIconId = createAuctionSell.ItemIconId,
+            ItemInfo = createAuctionSell.ItemInfo,
             StartPrice = createAuctionSell.StartPrice,
             BuyoutPrice = createAuctionSell.BuyoutPrice,
             StackSize = createAuctionSell.StackSize,
+            CurrencyWcid = createAuctionSell.CurrencyWcid,
+            CurrencyIconId = createAuctionSell.CurrencyIconId,
+            CurrencyName = createAuctionSell.CurrencyName,
             NumberOfStacks = createAuctionSell.NumberOfStacks,
             StartTime = createAuctionSell.StartTime,
             EndTime = createAuctionSell.EndTime

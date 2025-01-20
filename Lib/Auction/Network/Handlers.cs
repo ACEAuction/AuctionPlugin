@@ -36,12 +36,14 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
             var startTime = DateTime.UtcNow;
             var endTime = Settings.IsDev ? startTime.AddSeconds(request.Data.HoursDuration) : startTime.AddHours(hoursDuration);
 
-            var createAuctionSell = new CreateAuctionSell()
+            var createAuctionSell = new CreateSellOrder()
             {
                 SellerId = session.AccountId,
                 SellerName = session.Player.Name,
                 ItemId = request.Data.ItemId,
-                CurrencyWeenie = currencyWeenie,
+                CurrencyWcid = currencyWcid,
+                CurrencyName = currencyWeenie.GetName(),
+                CurrencyIconId = currencyWeenie.GetProperty(Entity.Enum.Properties.PropertyDataId.Icon) ?? 0,
                 NumberOfStacks = request.Data.NumberOfStacks,
                 StackSize = request.Data.StackSize,
                 StartPrice = request.Data.StartPrice,
@@ -51,20 +53,19 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
                 EndTime = endTime
             };
 
-            var sellOrder = session.Player.PlaceAuctionSell(createAuctionSell);
-
+            var sellOrder = session.Player.CreateAuctionSellOrder(createAuctionSell);
             var successResponse = new JsonResponse<AuctionSellOrder>(data: sellOrder);
             session.Network.EnqueueSend(new GameMessageAuctionSellResponse(successResponse));
         }
         catch (AuctionFailure ex)
         {
-            ModManager.Log(ex.ToString(), ModManager.LogLevel.Warn);
+            ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<AuctionSellOrder>(data: null, success: false, errorCode: (int)ex.Code, ex.Message);
             session.Network.EnqueueSend(new GameMessageAuctionSellResponse(response));
         }
         catch (Exception ex)
         {
-            ModManager.Log(ex.ToString(), ModManager.LogLevel.Warn);
+            ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<AuctionSellOrder>(data: null, success: false, errorCode: (int)FailureCode.Auction.Unknown, "Internal Server Error!");
             session.Network.EnqueueSend(new GameMessageAuctionSellResponse(response));
         }

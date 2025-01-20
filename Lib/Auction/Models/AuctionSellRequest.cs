@@ -30,5 +30,7 @@ internal class AuctionSellRequest
             throw new AuctionFailure("BuyoutPrice cannot be negative.", FailureCode.Auction.SellValidation);
         if (HoursDuration <= 0)
             throw new AuctionFailure("HoursDuration must be greater than 0.", FailureCode.Auction.SellValidation);
+        if (CurrencyWcid <= 0)
+            throw new AuctionFailure("Invalid Weenie Currency Type.", FailureCode.Auction.SellValidation);
     }
 }

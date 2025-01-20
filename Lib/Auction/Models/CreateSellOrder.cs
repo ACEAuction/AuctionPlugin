@@ -7,12 +7,16 @@ using ACE.Entity.Models;
 
 namespace ACE.Mods.Legend.Lib.Auction.Models;
 
-public class CreateAuctionSell
+public class CreateSellOrder
 {
     public uint ItemId { get; set; }
+    public uint ItemIconId { get; set; }
+    public string ItemInfo { get; set; }
     public uint SellerId { get; set; }
     public string SellerName { get; set; } 
-    public Weenie CurrencyWeenie { get; set; }
+    public uint CurrencyWcid { get; internal set; }
+    public string CurrencyName { get; set; }
+    public uint CurrencyIconId { get; set; }
     public uint StartPrice { get; set; }
     public uint NumberOfStacks { get; internal set; }
     public uint StackSize { get; internal set; }

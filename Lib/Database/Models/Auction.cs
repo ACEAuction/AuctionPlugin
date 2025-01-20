@@ -33,13 +33,16 @@ public partial class AuctionListing
     public uint Id { get; set; }
     public uint SellOrderId { get; set; }
     public uint ItemId { get; set; }
+    public uint ItemIconId { get; set; }
+    public string ItemInfo { get; set; }
     public uint SellerId { get; set; }
     public string SellerName { get; set; }
-    public uint IconId { get; set; }
     public uint StartPrice { get; set; }
     public uint BuyoutPrice { get; set; }
     public uint StackSize { get; set; }
     public uint NumberOfStacks { get; set; }
+    public uint CurrencyWcid { get; set; }
+    public uint CurrencyIconId { get; set; }
     public string CurrencyName { get; set; }
     public uint HighestBidAmount { get; set; } = 0;
     public uint HighestBidId { get; set; } = 0;
