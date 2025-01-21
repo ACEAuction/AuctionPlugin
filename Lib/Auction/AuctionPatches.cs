@@ -147,7 +147,7 @@ namespace ACE.Mods.Legend.Lib.Auction
                       .IsRequired();
 
                 entity.Property(e => e.HighestBidderName)
-                      .HasColumnName("highest_bid_amount")
+                      .HasColumnName("highest_bidder_name")
                       .IsRequired();
 
                 entity.Property(e => e.HighestBidAmount)
