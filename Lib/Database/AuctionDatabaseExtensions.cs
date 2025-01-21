@@ -2,6 +2,7 @@
 using ACE.Database;
 using ACE.Database.Models.Shard;
 using ACE.Entity.Models;
+using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Auction.Models;
 using ACE.Mods.Legend.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
@@ -78,6 +79,28 @@ public static class AuctionDatabaseExtensions
         }
     }
 
+    public static void SendMailItem(this ShardDatabase database, AuctionDbContext context, uint receiverId, uint itemId, string from)
+    {
+        var mailItem = new MailItem
+        {
+            Status = MailStatus.pending,
+            ReceiverId = receiverId,
+            ItemId = itemId,
+            From = from
+        };
+
+        context.MailItem.Add(mailItem);
+        context.SaveChanges();
+    }
+
+    public static void SendMailItem(this ShardDatabase database, uint receiverId, uint itemId, string from)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            SendMailItem(database, context, receiverId, itemId, from);
+        }
+    }
+
     public static AuctionListing? GetActiveAuctionListing(this ShardDatabase database, uint sellerId, uint itemId)
     {
         using (var context = new AuctionDbContext())
@@ -117,7 +140,7 @@ public static class AuctionDatabaseExtensions
 
         var sellOrder = new AuctionSellOrder()
         {
-            SellerId = createAuctionSell.SellerId,
+            SellerId = createAuctionSell.Seller.Guid.Full,
         };
 
         context.AuctionSellOrder.Add(sellOrder);
@@ -132,18 +155,25 @@ public static class AuctionDatabaseExtensions
         var listing = new AuctionListing
         {
             Status = AuctionListingStatus.active,
-            SellerId = createAuctionSell.SellerId,
-            SellerName = createAuctionSell.SellerName,
+            SellerId = createAuctionSell.Seller.Account.AccountId,
+            SellerName = createAuctionSell.Seller.Name,
             SellOrderId = sellOrderId,
             ItemId = itemId,
-            ItemIconId = createAuctionSell.ItemIconId,
-            ItemInfo = createAuctionSell.ItemInfo,
+            ItemName = createAuctionSell.Item.Name,
+            ItemIconId = createAuctionSell.Item.IconId,
+            ItemIconOverlay = createAuctionSell.Item.IconOverlayId ?? 0,
+            ItemIconUnderlay = createAuctionSell.Item.IconUnderlayId ?? 0,
+            ItemIconEffects = (uint)(createAuctionSell.Item.UiEffects ?? 0),
+            ItemInfo = createAuctionSell.Item.BuildItemInfo(),
             StartPrice = createAuctionSell.StartPrice,
             BuyoutPrice = createAuctionSell.BuyoutPrice,
             StackSize = createAuctionSell.StackSize,
-            CurrencyWcid = createAuctionSell.CurrencyWcid,
-            CurrencyIconId = createAuctionSell.CurrencyIconId,
-            CurrencyName = createAuctionSell.CurrencyName,
+            CurrencyWcid = createAuctionSell.Currency.WeenieClassId,
+            CurrencyIconId = createAuctionSell.Currency.GetProperty(Entity.Enum.Properties.PropertyDataId.Icon) ?? 0,
+            CurrencyIconOverlay = createAuctionSell.Currency.GetProperty(Entity.Enum.Properties.PropertyDataId.IconOverlay) ?? 0, 
+            CurrencyIconUnderlay = createAuctionSell.Currency.GetProperty(Entity.Enum.Properties.PropertyDataId.IconUnderlay) ?? 0, 
+            CurrencyIconEffects = 0, 
+            CurrencyName = createAuctionSell.Currency.GetName(),
             NumberOfStacks = createAuctionSell.NumberOfStacks,
             StartTime = createAuctionSell.StartTime,
             EndTime = createAuctionSell.EndTime
@@ -153,6 +183,41 @@ public static class AuctionDatabaseExtensions
         context.SaveChanges();
 
         return listing;
+    }
+
+    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database, uint accountId)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionListing
+                .AsNoTracking()
+                .Where(auction => auction.Status == AuctionListingStatus.active && auction.SellerId == accountId)
+                .OrderByDescending(item => item.EndTime)
+                .ToList();
+        }
+    }
+
+    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionListing
+                .AsNoTracking()
+                .Where(auction => auction.Status == AuctionListingStatus.active)
+                .OrderByDescending(item => item.EndTime)
+                .ToList();
+        }
+    }
+
+    public static AuctionBid? GetAuctionBid(this ShardDatabase database, uint bidId)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionBid
+                .AsNoTracking()
+                .Where(auction => auction.Id == bidId)
+                .FirstOrDefault();
+        }
     }
 
     public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)

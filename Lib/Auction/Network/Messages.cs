@@ -10,9 +10,10 @@ namespace ACE.Mods.Legend.Lib.Auction.Network;
 
 public enum AuctionGameMessageOpcode : uint
 {
-    AuctionGetAllListings = 0x10000,
-    AuctionSellRequest = 0x10001,
-    AuctionSellResponse = 0x10002
+    CreateSellOrderRequest = 0x10001,
+    CreateSellOrderResponse = 0x10002,
+    GetListingsRequest = 0x10003,
+    GetListingsResponse = 0x10004,
 }
 
 public class JsonResponse<T>
@@ -40,18 +41,18 @@ public class JsonRequest<T>
     }
 }
 
-public class GameMessageAuctionGetAllListings : GameMessage
+public class GameMessageGetListingsResponse : GameMessage
 {
-    public GameMessageAuctionGetAllListings(JsonResponse<List<AuctionItem>> response)
-        : base((GameMessageOpcode)AuctionGameMessageOpcode.AuctionGetAllListings, GameMessageGroup.UIQueue)
+    public GameMessageGetListingsResponse(JsonResponse<List<AuctionListing>> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.GetListingsResponse, GameMessageGroup.UIQueue)
     {
         this.WriteJson(response);
     }
 }
-public class GameMessageAuctionSellResponse : GameMessage
+public class GameMessageCreateSellOrderResponse : GameMessage
 {
-    public GameMessageAuctionSellResponse(JsonResponse<AuctionSellOrder> response)
-        : base((GameMessageOpcode)AuctionGameMessageOpcode.AuctionSellResponse, GameMessageGroup.UIQueue)
+    public GameMessageCreateSellOrderResponse(JsonResponse<AuctionSellOrder> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.CreateSellOrderResponse, GameMessageGroup.UIQueue)
     {
         this.WriteJson(response);
     }

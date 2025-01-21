@@ -79,6 +79,19 @@ namespace ACE.Mods.Legend.Lib.Auction
                 entity.Property(e => e.ItemIconId)
                       .HasColumnName("item_icon_id")
                       .IsRequired();
+                entity.Property(e => e.ItemIconOverlay)
+                      .HasColumnName("item_icon_overlay")
+                      .IsRequired();
+                entity.Property(e => e.ItemIconUnderlay)
+                      .HasColumnName("item_icon_underlay")
+                      .IsRequired();
+                entity.Property(e => e.ItemIconEffects)
+                      .HasColumnName("item_icon_effects")
+                      .IsRequired();
+
+                entity.Property(e => e.ItemName)
+                  .HasColumnName("item_name")
+                  .IsRequired();
 
                 entity.Property(e => e.ItemInfo)
                   .HasColumnName("item_info")
@@ -119,9 +132,22 @@ namespace ACE.Mods.Legend.Lib.Auction
                 entity.Property(e => e.CurrencyIconId)
                       .HasColumnName("currency_icon_id")
                       .IsRequired();
+                entity.Property(e => e.CurrencyIconOverlay)
+                      .HasColumnName("currency_icon_overlay")
+                      .IsRequired();
+                entity.Property(e => e.CurrencyIconUnderlay)
+                      .HasColumnName("currency_icon_underlay")
+                      .IsRequired();
+                entity.Property(e => e.CurrencyIconEffects)
+                      .HasColumnName("currency_icon_effects")
+                      .IsRequired();
 
                 entity.Property(e => e.CurrencyName)
                       .HasColumnName("currency_name")
+                      .IsRequired();
+
+                entity.Property(e => e.HighestBidderName)
+                      .HasColumnName("highest_bid_amount")
                       .IsRequired();
 
                 entity.Property(e => e.HighestBidAmount)
@@ -298,41 +324,5 @@ namespace ACE.Mods.Legend.Lib.Auction
                 }
             }
         }
-
-        [CommandHandler("ah-list", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 0, "Show auction house listings.", "Usage /ah-list [optional LISTING_ID]")]
-        public static void HandleAuctionList(Session session, params string[] parameters)
-        {
-            var response = new JsonResponse<List<AuctionItem>>(
-               data: null,
-               success: false,
-               errorCode: (int)FailureCode.Auction.SellValidation,
-               errorMessage: "No active auctions!");
-
-            session.Network.EnqueueSend(new GameMessageAuctionGetAllListings(response));
-            return;
-        }
-
-        /*[CommandHandler("ah-bid", AccessLevel.Player, CommandHandlerFlag.RequiresWorld, 2, "Bid on an auction listing.", "Usage /ah-bid <LISTING_ID> <BID_AMOUNT>")]
-        public static void HandleAuctionBid(Session session, params string[] parameters)
-        {
-            if (parameters.Length == 2 &&
-                uint.TryParse(parameters[0], out var listingId) &&
-                uint.TryParse(parameters[1], out var bidAmount))
-            {
-                try
-                {
-                    session.Player.PlaceAuctionBid(listingId, bidAmount);
-                }
-                catch (AuctionFailure ex)
-                {
-                    session.Player.SendAuctionMessage(ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    ModManager.Log(ex.Message, ModManager.LogLevel.Error);
-                    session.Player.SendAuctionMessage($"An unexpected error occurred");
-                }
-            }
-        }*/
-    }
+      }
 }
