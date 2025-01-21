@@ -217,29 +217,9 @@ public static class AuctionExtensions
         }
     }*/
 
-    public static void WriteJson<T>(this GameMessage message, JsonResponse<T> response)
+    public static List<AuctionListing> GetAuctionListings(this Player player, GetListingsRequest request)
     {
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        string jsonString = JsonSerializer.Serialize(response, options);
-        var length = jsonString.Length;
-        message.Writer.Write(length);
-        message.Writer.Write(Encoding.UTF8.GetBytes(jsonString));
-    }
-
-    public static JsonRequest<T>? ReadJson<T>(this ClientMessage message)
-    {
-        int length = message.Payload.ReadInt32();
-
-        var jsonString = message.Payload.ReadString();
-        //byte[] buffer = message.Payload.ReadBytes(length);
-        //string jsonString = Encoding.UTF8.GetString(buffer);
-
-        ModManager.Log($"Logging ReadJson() string payload");
-        ModManager.Log(jsonString);
-
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        return JsonSerializer.Deserialize<JsonRequest<T>>(jsonString, options);
-    }
+        return DatabaseManager.Shard.BaseDatabase.GetActiveAuctionListings(player.Account.AccountId, request);
 
     public static List<AuctionListing> GetAuctionListings(this Player player)
     {
