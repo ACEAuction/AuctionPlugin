@@ -2,6 +2,7 @@
 using ACE.Database;
 using ACE.Database.Models.Shard;
 using ACE.Entity.Models;
+using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Auction.Models;
 using ACE.Mods.Legend.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
@@ -139,7 +140,7 @@ public static class AuctionDatabaseExtensions
 
         var sellOrder = new AuctionSellOrder()
         {
-            SellerId = createAuctionSell.SellerId,
+            SellerId = createAuctionSell.Seller.Guid.Full,
         };
 
         context.AuctionSellOrder.Add(sellOrder);
@@ -154,18 +155,25 @@ public static class AuctionDatabaseExtensions
         var listing = new AuctionListing
         {
             Status = AuctionListingStatus.active,
-            SellerId = createAuctionSell.SellerId,
-            SellerName = createAuctionSell.SellerName,
+            SellerId = createAuctionSell.Seller.Account.AccountId,
+            SellerName = createAuctionSell.Seller.Name,
             SellOrderId = sellOrderId,
             ItemId = itemId,
-            ItemIconId = createAuctionSell.ItemIconId,
-            ItemInfo = createAuctionSell.ItemInfo,
+            ItemName = createAuctionSell.Item.Name,
+            ItemIconId = createAuctionSell.Item.IconId,
+            ItemIconOverlay = createAuctionSell.Item.IconOverlayId ?? 0,
+            ItemIconUnderlay = createAuctionSell.Item.IconUnderlayId ?? 0,
+            ItemIconEffects = (uint)(createAuctionSell.Item.UiEffects ?? 0),
+            ItemInfo = createAuctionSell.Item.BuildItemInfo(),
             StartPrice = createAuctionSell.StartPrice,
             BuyoutPrice = createAuctionSell.BuyoutPrice,
             StackSize = createAuctionSell.StackSize,
-            CurrencyWcid = createAuctionSell.CurrencyWcid,
-            CurrencyIconId = createAuctionSell.CurrencyIconId,
-            CurrencyName = createAuctionSell.CurrencyName,
+            CurrencyWcid = createAuctionSell.Currency.WeenieClassId,
+            CurrencyIconId = createAuctionSell.Currency.GetProperty(Entity.Enum.Properties.PropertyDataId.Icon) ?? 0,
+            CurrencyIconOverlay = createAuctionSell.Currency.GetProperty(Entity.Enum.Properties.PropertyDataId.IconOverlay) ?? 0, 
+            CurrencyIconUnderlay = createAuctionSell.Currency.GetProperty(Entity.Enum.Properties.PropertyDataId.IconUnderlay) ?? 0, 
+            CurrencyIconEffects = 0, 
+            CurrencyName = createAuctionSell.Currency.GetName(),
             NumberOfStacks = createAuctionSell.NumberOfStacks,
             StartTime = createAuctionSell.StartTime,
             EndTime = createAuctionSell.EndTime

@@ -79,6 +79,19 @@ namespace ACE.Mods.Legend.Lib.Auction
                 entity.Property(e => e.ItemIconId)
                       .HasColumnName("item_icon_id")
                       .IsRequired();
+                entity.Property(e => e.ItemIconOverlay)
+                      .HasColumnName("item_icon_overlay")
+                      .IsRequired();
+                entity.Property(e => e.ItemIconUnderlay)
+                      .HasColumnName("item_icon_underlay")
+                      .IsRequired();
+                entity.Property(e => e.ItemIconEffects)
+                      .HasColumnName("item_icon_effects")
+                      .IsRequired();
+
+                entity.Property(e => e.ItemName)
+                  .HasColumnName("item_name")
+                  .IsRequired();
 
                 entity.Property(e => e.ItemInfo)
                   .HasColumnName("item_info")
@@ -118,6 +131,15 @@ namespace ACE.Mods.Legend.Lib.Auction
 
                 entity.Property(e => e.CurrencyIconId)
                       .HasColumnName("currency_icon_id")
+                      .IsRequired();
+                entity.Property(e => e.CurrencyIconOverlay)
+                      .HasColumnName("currency_icon_overlay")
+                      .IsRequired();
+                entity.Property(e => e.CurrencyIconUnderlay)
+                      .HasColumnName("currency_icon_underlay")
+                      .IsRequired();
+                entity.Property(e => e.CurrencyIconEffects)
+                      .HasColumnName("currency_icon_effects")
                       .IsRequired();
 
                 entity.Property(e => e.CurrencyName)

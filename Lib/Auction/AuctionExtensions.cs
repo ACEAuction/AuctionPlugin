@@ -19,7 +19,7 @@ namespace ACE.Mods.Legend.Lib.Auction;
 
 public static class AuctionExtensions
 {
-
+    static Settings Settings => PatchClass.Settings;
 
     private static readonly ushort MaxAuctionHours = 168; 
 
@@ -261,14 +261,39 @@ public static class AuctionExtensions
         }
     }
 
-    public static AuctionSellOrder CreateAuctionSellOrder(this Player player, CreateSellOrder createSellOrder)
+    public static AuctionSellOrder CreateAuctionSellOrder(this Player player, SellOrderRequest request)
     {
+        var currencyWcid = request.CurrencyWcid;
+        Weenie currencyWeenie = DatabaseManager.World.GetCachedWeenie(currencyWcid) 
+            ?? throw new AuctionFailure($"Failed to get currency name from weenie with WeenieClassId = {currencyWcid}", FailureCode.Auction.SellValidation);
+
+        var sellItem = player.GetInventoryItem(request.ItemId)
+            ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ProcessSell);
+
+        var hoursDuration = request.HoursDuration;
+        var startTime = DateTime.UtcNow;
+        var endTime = Settings.IsDev ? startTime.AddSeconds(request.HoursDuration) : startTime.AddHours(hoursDuration);
+
+        var createSellOrder = new CreateSellOrder()
+        {
+            Item = sellItem,
+            Seller = player,
+            Currency = currencyWeenie,
+            NumberOfStacks = request.NumberOfStacks,
+            StackSize = request.StackSize,
+            StartPrice = request.StartPrice,
+            BuyoutPrice = request.BuyoutPrice,
+            StartTime = startTime,
+            HoursDuration = hoursDuration,
+            EndTime = endTime
+        };
+
         var remainingTime = createSellOrder.EndTime - createSellOrder.StartTime;
 
         var sellContext = new AuctionSellContext(
-            new List<WorldObject>(),
-            createSellOrder,
-            remainingTime
+            removedItems: new List<WorldObject>(),
+            auctionSell: createSellOrder,
+            remainingTime: remainingTime
         );
 
         return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
@@ -282,10 +307,7 @@ public static class AuctionExtensions
             },
             failureAction: exception =>
             {
-                if (exception is AuctionFailure)
-                {
-                    HandleCreateSellOrderFailure(player, sellContext, exception.Message);
-                }
+                HandleCreateSellOrderFailure(player, sellContext, exception.Message);
             });
     }
 
@@ -293,29 +315,24 @@ public static class AuctionExtensions
     {
         var numOfStacks = sellContext.CreateSellOrder.NumberOfStacks;
         var stackSize = sellContext.CreateSellOrder.StackSize;
+        var item = sellContext.CreateSellOrder.Item;
 
         if (sellContext.CreateSellOrder.HoursDuration > MaxAuctionHours)
             throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)", FailureCode.Auction.SellValidation);
 
-        var sellItem = player.GetInventoryItem(sellContext.CreateSellOrder.ItemId)
-            ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ProcessSell);
-
-        sellContext.CreateSellOrder.ItemIconId = sellItem.IconId;
-        sellContext.CreateSellOrder.ItemInfo = sellItem.BuildItemInfo();
-
-        if (sellItem.ItemWorkmanship != null && (numOfStacks > 1 || stackSize > 1))
+        if (item.ItemWorkmanship != null && (numOfStacks > 1 || stackSize > 1))
             throw new AuctionFailure("A loot-generated item cannot be traded if the number of stacks is greater than 1.", FailureCode.Auction.ProcessSell);
 
         var totalStacks = numOfStacks * stackSize; 
 
-        if (totalStacks > sellItem.StackSize)
+        if (totalStacks > item.StackSize)
             throw new AuctionFailure("The item does not have enough stacks to complete the auction sale.", FailureCode.Auction.ProcessSell);
 
-        var sellItemMaxStackSize = sellItem.MaxStackSize ?? 1;
+        var sellItemMaxStackSize = item.MaxStackSize ?? 1;
 
         for (var i = 0; i < numOfStacks; i++)
         {
-            player.RemoveItemForTransfer(sellItem.Guid.Full, out WorldObject removedItem, (int?)stackSize);
+            player.RemoveItemForTransfer(item.Guid.Full, out WorldObject removedItem, (int?)stackSize);
             sellContext.RemovedItems.Add(removedItem);
             DatabaseManager.Shard.BaseDatabase.PlaceAuctionListing(dbContext, removedItem.Guid.Full, sellContext.SellOrder.Id, sellContext.CreateSellOrder);
         }
@@ -325,7 +342,7 @@ public static class AuctionExtensions
     {
         foreach (var removedItem in sellContext.RemovedItems)
         {
-            DatabaseManager.Shard.BaseDatabase.SendMailItem(sellContext.CreateSellOrder.SellerId, removedItem.Guid.Full, "Auction House");
+            DatabaseManager.Shard.BaseDatabase.SendMailItem(sellContext.CreateSellOrder.Seller.Guid.Full, removedItem.Guid.Full, "Auction House");
         }
     }
 
