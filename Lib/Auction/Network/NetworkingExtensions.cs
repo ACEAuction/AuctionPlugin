@@ -35,10 +35,8 @@ public static class NetworkingExtensions
         catch (JsonException ex)
         {
             ModManager.Log($"JSON deserialization error: {ex.Message}", ModManager.LogLevel.Error);
-            ModManager.Log($"Payload: {message.Payload}", ModManager.LogLevel.Error);
 
             return null;
         }
     }
-}
 }
