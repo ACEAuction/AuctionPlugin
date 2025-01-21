@@ -79,28 +79,6 @@ public static class AuctionDatabaseExtensions
         }
     }
 
-    public static void SendMailItem(this ShardDatabase database, AuctionDbContext context, uint receiverId, uint itemId, string from)
-    {
-        var mailItem = new MailItem
-        {
-            Status = MailStatus.pending,
-            ReceiverId = receiverId,
-            ItemId = itemId,
-            From = from
-        };
-
-        context.MailItem.Add(mailItem);
-        context.SaveChanges();
-    }
-
-    public static void SendMailItem(this ShardDatabase database, uint receiverId, uint itemId, string from)
-    {
-        using (var context = new AuctionDbContext())
-        {
-            SendMailItem(database, context, receiverId, itemId, from);
-        }
-    }
-
     public static AuctionListing? GetActiveAuctionListing(this ShardDatabase database, uint sellerId, uint itemId)
     {
         using (var context = new AuctionDbContext())
@@ -194,29 +172,6 @@ public static class AuctionDatabaseExtensions
                 .Where(auction => auction.Status == AuctionListingStatus.active && auction.SellerId == accountId)
                 .OrderByDescending(item => item.EndTime)
                 .ToList();
-        }
-    }
-
-    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
-    {
-        using (var context = new AuctionDbContext())
-        {
-            return context.AuctionListing
-                .AsNoTracking()
-                .Where(auction => auction.Status == AuctionListingStatus.active)
-                .OrderByDescending(item => item.EndTime)
-                .ToList();
-        }
-    }
-
-    public static AuctionBid? GetAuctionBid(this ShardDatabase database, uint bidId)
-    {
-        using (var context = new AuctionDbContext())
-        {
-            return context.AuctionBid
-                .AsNoTracking()
-                .Where(auction => auction.Id == bidId)
-                .FirstOrDefault();
         }
     }
 
