@@ -146,6 +146,10 @@ namespace ACE.Mods.Legend.Lib.Auction
                       .HasColumnName("currency_name")
                       .IsRequired();
 
+                entity.Property(e => e.HighestBidderName)
+                      .HasColumnName("highest_bid_amount")
+                      .IsRequired();
+
                 entity.Property(e => e.HighestBidAmount)
                       .HasColumnName("highest_bid_amount")
                       .IsRequired();

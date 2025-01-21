@@ -26,6 +26,7 @@ CREATE TABLE auction_listing (
     `currency_icon_underlay` INT UNSIGNED NOT NULL,
     `currency_icon_effects` INT UNSIGNED NOT NULL,
     `currency_name` VARCHAR(50) NOT NULL,
+    `highest_bidder_name` VARCHAR(50) NOT NULL,
     `highest_bid_amount` INT UNSIGNED,
     `highest_bid_id` INT UNSIGNED,
     `highest_bidder_id` INT UNSIGNED,
