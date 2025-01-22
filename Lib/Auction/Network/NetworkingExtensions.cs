@@ -16,6 +16,8 @@ public static class NetworkingExtensions
         var length = jsonString.Length;
         message.Writer.Write(length);
         message.Writer.Write(Encoding.UTF8.GetBytes(jsonString));
+        ModManager.Log($"Logging WriteJson() string payload");
+        ModManager.Log(jsonString);
     }
 
     public static JsonRequest<T>? ReadJson<T>(this ClientMessage message)
@@ -29,8 +31,7 @@ public static class NetworkingExtensions
             ModManager.Log($"Logging ReadJson() string payload");
             ModManager.Log(jsonString);
 
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            return JsonSerializer.Deserialize<JsonRequest<T>>(jsonString, options);
+            return JsonSerializer.Deserialize<JsonRequest<T>>(jsonString);
         }
         catch (JsonException ex)
         {
