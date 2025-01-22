@@ -163,15 +163,36 @@ public static class AuctionDatabaseExtensions
         return listing;
     }
 
-    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database, uint accountId)
+    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database, uint accountId, GetListingsRequest request)
     {
         using (var context = new AuctionDbContext())
         {
-            return context.AuctionListing
+            var query = context.AuctionListing
                 .AsNoTracking()
-                .Where(auction => auction.Status == AuctionListingStatus.active && auction.SellerId == accountId)
-                .OrderByDescending(item => item.EndTime)
-                .ToList();
+                .Where(listing => listing.Status == AuctionListingStatus.active && listing.SellerId == accountId);
+
+            var sortBy = (ListingColumn)request.SortBy;
+            var sortDirection = (ListingSortDirection)request.SortDirection;
+            var searchQuery = request.SearchQuery;
+
+            if (!string.IsNullOrEmpty(searchQuery))
+            {
+                query = query.Where(a => a.ItemInfo.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+            }
+
+            query = sortBy switch
+            {
+                ListingColumn.Name => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.ItemName) : query.OrderByDescending(a => a.ItemName),
+                ListingColumn.StackSize => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.StackSize) : query.OrderByDescending(a => a.StackSize),
+                ListingColumn.BuyoutPrice => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.BuyoutPrice) : query.OrderByDescending(a => a.BuyoutPrice),
+                ListingColumn.StartPrice => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.StartPrice) : query.OrderByDescending(a => a.StartPrice),
+                ListingColumn.Seller => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.SellerName) : query.OrderByDescending(a => a.SellerName),
+                ListingColumn.Currency => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.CurrencyName) : query.OrderByDescending(a => a.CurrencyName),
+                ListingColumn.HighestBidder => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.HighestBidderName) : query.OrderByDescending(a => a.HighestBidderName),
+                _ => query.OrderBy(a => a.ItemName), 
+            };
+
+            return query.ToList();
         }
     }
 

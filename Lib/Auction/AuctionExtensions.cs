@@ -220,10 +220,6 @@ public static class AuctionExtensions
     public static List<AuctionListing> GetAuctionListings(this Player player, GetListingsRequest request)
     {
         return DatabaseManager.Shard.BaseDatabase.GetActiveAuctionListings(player.Account.AccountId, request);
-
-    public static List<AuctionListing> GetAuctionListings(this Player player)
-    {
-        return DatabaseManager.Shard.BaseDatabase.GetActiveAuctionListings(player.Account.AccountId);
     }
 
     public class AuctionSellContext
@@ -631,5 +627,4 @@ public static class AuctionExtensions
 
         return sb.ToString();
     }
-
 }
