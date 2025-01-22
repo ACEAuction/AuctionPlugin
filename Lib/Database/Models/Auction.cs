@@ -54,7 +54,7 @@ public partial class AuctionListing
     public uint HighestBidAmount { get; set; } = 0;
     public uint HighestBidId { get; set; } = 0;
     public uint HighestBidderId { get; set; } = 0;
-    public string HighestBidderName { get; set; }  
+    public string HighestBidderName { get; set; } = "";
     public AuctionListingStatus Status { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
