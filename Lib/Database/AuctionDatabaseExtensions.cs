@@ -163,48 +163,58 @@ public static class AuctionDatabaseExtensions
         return listing;
     }
 
-    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database, uint accountId, GetListingsRequest request)
+    public static IQueryable<AuctionListing> GetListingsByAccount(this ShardDatabase database, AuctionDbContext context, uint accountId, AuctionListingStatus status)
+    {
+        var query = context.AuctionListing
+            .AsNoTracking()
+            .Where(listing => listing.Status == status && listing.SellerId == accountId);
+
+        return query;
+    }
+
+    public static IQueryable<AuctionListing> GetListingsByAccount(this ShardDatabase database, uint accountId, AuctionListingStatus status)
     {
         using (var context = new AuctionDbContext())
         {
-            var query = context.AuctionListing
-                .AsNoTracking()
-                .Where(listing => listing.Status == AuctionListingStatus.active && listing.SellerId == accountId);
-
-            var sortBy = (ListingColumn)request.SortBy;
-            var sortDirection = (ListingSortDirection)request.SortDirection;
-            var searchQuery = request.SearchQuery;
-
-            if (!string.IsNullOrEmpty(searchQuery))
-            {
-                query = query.Where(a => a.ItemInfo.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
-            }
-
-            query = sortBy switch
-            {
-                ListingColumn.Name => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.ItemName) : query.OrderByDescending(a => a.ItemName),
-                ListingColumn.StackSize => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.StackSize) : query.OrderByDescending(a => a.StackSize),
-                ListingColumn.BuyoutPrice => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.BuyoutPrice) : query.OrderByDescending(a => a.BuyoutPrice),
-                ListingColumn.StartPrice => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.StartPrice) : query.OrderByDescending(a => a.StartPrice),
-                ListingColumn.Seller => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.SellerName) : query.OrderByDescending(a => a.SellerName),
-                ListingColumn.Currency => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.CurrencyName) : query.OrderByDescending(a => a.CurrencyName),
-                ListingColumn.HighestBidder => sortDirection == ListingSortDirection.Ascending ? query.OrderBy(a => a.HighestBidderName) : query.OrderByDescending(a => a.HighestBidderName),
-                _ => query.OrderBy(a => a.ItemName), 
-            };
-
-            return query.ToList();
+            return database.GetListingsByAccount(context, accountId, status);
         }
     }
 
-    public static List<AuctionListing> GetActiveAuctionListings(this ShardDatabase database)
+    public static IQueryable<AuctionListing> ApplyListingsSearchFilter(this ShardDatabase database, IQueryable<AuctionListing> query, string searchQuery)
+    {
+        if (!string.IsNullOrEmpty(searchQuery))
+        {
+            query = query.Where(a => a.ItemInfo.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return query;
+    }
+
+    public static IQueryable<AuctionListing> ApplyListingsSortFilter(this ShardDatabase database, IQueryable<AuctionListing> query, uint sortColumn, uint sortDirection)
+    {
+        query = sortColumn switch
+        {
+            (uint)ListingColumn.Name => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.ItemName) : query.OrderByDescending(a => a.ItemName),
+            (uint)ListingColumn.StackSize => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.StackSize) : query.OrderByDescending(a => a.StackSize),
+            (uint)ListingColumn.BuyoutPrice => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.BuyoutPrice) : query.OrderByDescending(a => a.BuyoutPrice),
+            (uint)ListingColumn.StartPrice => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.StartPrice) : query.OrderByDescending(a => a.StartPrice),
+            (uint)ListingColumn.Seller => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.SellerName) : query.OrderByDescending(a => a.SellerName),
+            (uint)ListingColumn.Currency => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.CurrencyName) : query.OrderByDescending(a => a.CurrencyName),
+            (uint)ListingColumn.HighestBidder => sortDirection == (uint)ListingSortDirection.Ascending ? query.OrderBy(a => a.HighestBidderName) : query.OrderByDescending(a => a.HighestBidderName),
+            _ => query.OrderBy(a => a.ItemName), 
+        };
+
+        return query;
+    }
+
+    public static List<AuctionListing> GetPostAuctionListings(this ShardDatabase database, uint accountId, uint sortColumn, uint sortDirection, string search)
     {
         using (var context = new AuctionDbContext())
         {
-            return context.AuctionListing
-                .AsNoTracking()
-                .Where(auction => auction.Status == AuctionListingStatus.active)
-                .OrderByDescending(item => item.EndTime)
-                .ToList();
+            var query = database.GetListingsByAccount(context, accountId, AuctionListingStatus.active);
+            var sortedQuery = database.ApplyListingsSortFilter(query, sortColumn, sortDirection);
+            var searchQuery = database.ApplyListingsSearchFilter(sortedQuery, search);
+            return [.. searchQuery];
         }
     }
 
@@ -216,6 +226,18 @@ public static class AuctionDatabaseExtensions
                 .AsNoTracking()
                 .Where(auction => auction.Id == bidId)
                 .FirstOrDefault();
+        }
+    }
+
+    public static List<AuctionListing>? GetExpiredListings(this ShardDatabase database, double timestamp, uint status)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            return context.AuctionListing
+                .AsNoTracking()
+                .Where(auction => (uint)auction.Status == status)
+                .Where(auction => Time.GetDateTimeFromTimestamp(timestamp) > auction.EndTime)
+                .ToList();
         }
     }
 }

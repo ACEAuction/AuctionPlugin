@@ -57,7 +57,7 @@ public static class AuctionManager
 
     private static AuctionListing? GetExpiredListing(double currentUnixTime)
     {
-        return DatabaseManager.Shard.BaseDatabase.GetActiveAuctionListings().FirstOrDefault();
+        return DatabaseManager.Shard.BaseDatabase.GetExpiredListings(currentUnixTime, 0)?.FirstOrDefault();
     }
 
     private static void ProcessExpiredListing(AuctionListing activeListing)
