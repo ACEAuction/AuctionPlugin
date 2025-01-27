@@ -18,7 +18,7 @@ public static class GameMessageCreateSellOrderRequest
         try
         {
             var opcode = clientMessage.Opcode;
-            var request = clientMessage.ReadJson<SellOrderRequest>();
+            var request = clientMessage.ReadJson<CreateSellOrderRequest>();
 
             if (request == null || request.Data == null)
                 throw new AuctionFailure("The Sell order request data is invalid!", FailureCode.Auction.SellValidation);

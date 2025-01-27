@@ -7,7 +7,7 @@ using ACE.Mods.Legend.Lib.Common.Errors;
 
 namespace ACE.Mods.Legend.Lib.Auction.Models;
 
-public class SellOrderRequest
+public class CreateSellOrderRequest
 {
     public uint ItemId { get; set; }
     public uint StartPrice { get; set; }
