@@ -44,23 +44,23 @@ public static class GameMessageCreateSellOrderRequest
     }
 }
 
-public static class GameMessageGetListingsRequest
+public static class GameMessageGetPostListingsRequest
 {
     static Settings Settings => PatchClass.Settings;
 
-    [GameMessage((GameMessageOpcode)AuctionGameMessageOpcode.GetListingsRequest, SessionState.WorldConnected)]
+    [GameMessage((GameMessageOpcode)AuctionGameMessageOpcode.GetPostListingsRequest, SessionState.WorldConnected)]
     public static void Handle(ClientMessage clientMessage, Session session)
     {
         try
         {
-            var request = clientMessage.ReadJson<GetListingsRequest>();
+            var request = clientMessage.ReadJson<GetPostListingsRequest>();
 
             if (request == null || request.Data == null)
-                throw new AuctionFailure("The get listings request data is invalid!", FailureCode.Auction.GetListingsRequest);
+                throw new AuctionFailure("The get listings request data is invalid!", FailureCode.Auction.GetPostListingsRequest);
 
             request.Data.Validate();
 
-            List<AuctionListing> listings = session.Player.GetAuctionListings(request.Data);
+            List<AuctionListing> listings = session.Player.GetPostAuctionListings(request.Data);
 
             var response = new JsonResponse<List<AuctionListing>>(data: listings);
             session.Network.EnqueueSend(new GameMessageGetListingsResponse(response));
