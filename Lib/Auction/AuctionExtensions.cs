@@ -30,19 +30,28 @@ public static class AuctionExtensions
         player.Session.Network.EnqueueSend(new GameMessageSystemChat($"{AuctionPrefix} {message}", messageType));
     }
 
-    public static List<AuctionListing> GetAuctionListings(this Player player, GetListingsRequest request)
+    public static List<AuctionListing> GetPostAuctionListings(this Player player, GetPostListingsRequest request)
     {
-        return DatabaseManager.Shard.BaseDatabase.GetPostAuctionListings(player.Account.AccountId, request.SortBy, request.SortDirection, request.SearchQuery);
+        return DatabaseManager.Shard.BaseDatabase.GetPostAuctionListings(
+            player.Account.AccountId, 
+            request.SortBy, 
+            request.SortDirection, 
+            request.SearchQuery, 
+            request.PageNumber, 
+            request.PageSize);
     }
 
-    public class AuctionSellContext
+    /// <summary>
+    /// This context is used throughout the sell order transaction usecase
+    /// </summary>
+    public class CreateSellOrderContext
     {
         public List<WorldObject> RemovedItems { get; }
         public AuctionSellOrder SellOrder { get; set; }
         public CreateSellOrder CreateSellOrder { get;}
         public TimeSpan RemainingTime { get; }
 
-        public AuctionSellContext(List<WorldObject> removedItems, CreateSellOrder auctionSell, TimeSpan remainingTime)
+        public CreateSellOrderContext(List<WorldObject> removedItems, CreateSellOrder auctionSell, TimeSpan remainingTime)
         {
             RemovedItems = removedItems ?? throw new ArgumentNullException(nameof(removedItems));
             RemainingTime = remainingTime;
@@ -79,7 +88,7 @@ public static class AuctionExtensions
 
         var remainingTime = createSellOrder.EndTime - createSellOrder.StartTime;
 
-        var sellContext = new AuctionSellContext(
+        var sellContext = new CreateSellOrderContext(
             removedItems: new List<WorldObject>(),
             auctionSell: createSellOrder,
             remainingTime: remainingTime
@@ -100,7 +109,7 @@ public static class AuctionExtensions
             });
     }
 
-    private static void ProcessSell(Player player, AuctionSellContext sellContext, AuctionDbContext dbContext)
+    private static void ProcessSell(Player player, CreateSellOrderContext sellContext, AuctionDbContext dbContext)
     {
         var numOfStacks = sellContext.CreateSellOrder.NumberOfStacks;
         var stackSize = sellContext.CreateSellOrder.StackSize;
@@ -127,11 +136,11 @@ public static class AuctionExtensions
         }
     }
 
-    private static void HandleCreateSellOrderFailure(Player player, AuctionSellContext sellContext, string errorMessage)
+    private static void HandleCreateSellOrderFailure(Player player, CreateSellOrderContext sellContext, string errorMessage)
     {
         foreach (var removedItem in sellContext.RemovedItems)
         {
-            DatabaseManager.Shard.BaseDatabase.SendMailItem(sellContext.CreateSellOrder.Seller.Guid.Full, removedItem.Guid.Full, "Auction House");
+            DatabaseManager.Shard.BaseDatabase.SendMailItem(sellContext.CreateSellOrder.Seller.Account.AccountId, removedItem.Guid.Full, "Auction House");
         }
     }
 

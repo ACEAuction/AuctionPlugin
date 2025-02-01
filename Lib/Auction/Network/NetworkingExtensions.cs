@@ -11,13 +11,29 @@ public static class NetworkingExtensions
 {
     public static void WriteJson<T>(this GameMessage message, JsonResponse<T> response)
     {
-        var options = new JsonSerializerOptions { WriteIndented = true };
+        var stopwatch = Stopwatch.StartNew();  
+
+        var options = new JsonSerializerOptions { WriteIndented = false };
         string jsonString = JsonSerializer.Serialize(response, options);
-        var length = jsonString.Length;
-        message.Writer.Write(length);
-        message.Writer.Write(Encoding.UTF8.GetBytes(jsonString));
-        ModManager.Log($"Logging WriteJson() string payload");
-        ModManager.Log(jsonString);
+
+        byte[] jsonBytes = Encoding.UTF8.GetBytes(jsonString);
+
+        message.Writer.Write(jsonBytes.Length);
+        message.Writer.Write(jsonBytes);
+
+        stopwatch.Stop();  
+
+        if (jsonBytes.Length < 1000)
+        {
+            ModManager.Log("Logging WriteJson() string payload");
+            ModManager.Log(jsonString);
+        }
+        else
+        {
+            ModManager.Log($"Payload too large to log. Size: {jsonBytes.Length} bytes");
+        }
+
+        ModManager.Log($"WriteJson took {stopwatch.ElapsedMilliseconds} ms");
     }
 
     public static JsonRequest<T>? ReadJson<T>(this ClientMessage message)

@@ -12,8 +12,8 @@ public enum AuctionGameMessageOpcode : uint
 {
     CreateSellOrderRequest = 0x10001,
     CreateSellOrderResponse = 0x10002,
-    GetListingsRequest = 0x10003,
-    GetListingsResponse = 0x10004,
+    GetPostListingsRequest = 0x10003,
+    GetPostListingsResponse = 0x10004,
 }
 
 public class JsonResponse<T>
@@ -41,10 +41,10 @@ public class JsonRequest<T>
     }
 }
 
-public class GameMessageGetListingsResponse : GameMessage
+public class GameMessageGetPostListingsResponse : GameMessage
 {
-    public GameMessageGetListingsResponse(JsonResponse<List<AuctionListing>> response)
-        : base((GameMessageOpcode)AuctionGameMessageOpcode.GetListingsResponse, GameMessageGroup.UIQueue)
+    public GameMessageGetPostListingsResponse(JsonResponse<List<AuctionListing>> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.GetPostListingsResponse, GameMessageGroup.UIQueue)
     {
         this.WriteJson(response);
     }

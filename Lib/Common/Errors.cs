@@ -8,7 +8,7 @@ public static class FailureCode
         SellValidation = 1,
         TransferItemFailure = 2,
         ProcessSell = 3,
-        GetListingsRequest = 4,
+        GetPostListingsRequest = 4,
     }
 }
 

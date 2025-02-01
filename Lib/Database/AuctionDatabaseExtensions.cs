@@ -190,7 +190,11 @@ public static class AuctionDatabaseExtensions
         return query;
     }
 
-    public static IQueryable<AuctionListing> ApplyListingsSortFilter(this ShardDatabase database, IQueryable<AuctionListing> query, uint sortColumn, uint sortDirection)
+    public static IQueryable<AuctionListing> ApplyListingsSortFilter(
+        this ShardDatabase database,
+        IQueryable<AuctionListing> query,
+        uint sortColumn,
+        uint sortDirection)
     {
         query = sortColumn switch
         {
@@ -205,16 +209,32 @@ public static class AuctionDatabaseExtensions
         };
 
         return query;
-    }
 
-    public static List<AuctionListing> GetPostAuctionListings(this ShardDatabase database, uint accountId, uint sortColumn, uint sortDirection, string search)
+    }
+    public static List<AuctionListing> GetPostAuctionListings(
+    this ShardDatabase database,
+    uint accountId,
+    uint sortColumn,
+    uint sortDirection,
+    string search,
+    uint pageNumber,
+    uint pageSize)
     {
         using (var context = new AuctionDbContext())
         {
             var query = database.GetListingsByAccount(context, accountId, AuctionListingStatus.active);
-            var sortedQuery = database.ApplyListingsSortFilter(query, sortColumn, sortDirection);
-            var searchQuery = database.ApplyListingsSearchFilter(sortedQuery, search);
-            return [.. searchQuery];
+
+            // Apply filtering before sorting
+            var filteredQuery = database.ApplyListingsSearchFilter(query, search);
+            var sortedQuery = database.ApplyListingsSortFilter(filteredQuery, sortColumn, sortDirection);
+
+            var pageIndex = Math.Max(0, (int)pageNumber - 1);
+            var skipAmount = pageIndex * (int)pageSize;
+
+            return sortedQuery
+                .Skip(skipAmount)
+                .Take((int)pageSize)
+                .ToList();
         }
     }
 
