@@ -184,7 +184,7 @@ public static class AuctionDatabaseExtensions
     {
         if (!string.IsNullOrEmpty(searchQuery))
         {
-            query = query.Where(a => a.ItemInfo.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(a => a.ItemInfo.ToLower().Contains(searchQuery.ToLower()));
         }
 
         return query;
@@ -209,8 +209,8 @@ public static class AuctionDatabaseExtensions
         };
 
         return query;
-
     }
+
     public static List<AuctionListing> GetPostAuctionListings(
     this ShardDatabase database,
     uint accountId,
