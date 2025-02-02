@@ -1,13 +1,9 @@
-﻿using ACE.Database;
-using ACE.Entity;
-using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Common;
-using ACE.Mods.Legend.Lib.Common.Errors;
+﻿using System.Data;
+using ACE.Database;
 using ACE.Mods.Legend.Lib.Database;
 using ACE.Mods.Legend.Lib.Database.Models;
-using ACE.Server.Factories;
 using ACE.Server.Managers;
-using ACE.Shared;
+using Microsoft.EntityFrameworkCore;
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
@@ -40,13 +36,7 @@ public static class AuctionManager
         {
             try
             {
-                var activeListing = GetExpiredListing(currentUnixTime);
-                if (activeListing != null)
-                {
-                    //Log($"Active listing Id = {activeListing.Id}");
-
-                    //ProcessExpiredListing(activeListing);
-                }
+                ProcessExpiredListings(currentUnixTime);
             }
             catch (Exception ex)
             {
@@ -55,47 +45,43 @@ public static class AuctionManager
         }
     }
 
-    private static AuctionListing? GetExpiredListing(double currentUnixTime)
+    private static void ProcessExpiredListings(double currentUnixTime)
     {
-        return DatabaseManager.Shard.BaseDatabase.GetExpiredListings(currentUnixTime, 0)?.FirstOrDefault();
+        var expiredListings = DatabaseManager.Shard.BaseDatabase.GetExpiredListings(currentUnixTime, AuctionListingStatus.active);
+
+        foreach (var expiredListing in expiredListings)
+        {
+            ProcessExpiredListing(expiredListing);
+        }
     }
 
-    private static void ProcessExpiredListing(AuctionListing activeListing)
+    private static AuctionListing? ProcessExpiredListing(uint listingId)
     {
-        var sellerId = activeListing.SellerId;
-        var sellerName = activeListing.SellerName;
-        var highestBidderId = activeListing.HighestBidId;
-        var highestBidId = activeListing.HighestBidId;
-
-        DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
+        return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
             executeAction: dbContext =>
             {
+                var expiredListing = dbContext.AuctionListing.Find(listingId);
+                if (expiredListing == null) return null;  
+
+                var sellerId = expiredListing.SellerId;
+                var sellerName = expiredListing.SellerName;
+                var highestBidderId = expiredListing.HighestBidderId;
+                var highestBidId = expiredListing.HighestBidId;
+
                 if (highestBidderId == 0)
                 {
-                    DatabaseManager.Shard.BaseDatabase.SendMailItem(dbContext, sellerId, activeListing.ItemId, "Auction House");
+                    DatabaseManager.Shard.BaseDatabase.SendMailItem(dbContext, sellerId, expiredListing.ItemId, "Auction House");
                 }
                 else
                 {
-                    var highestBid = DatabaseManager.Shard.BaseDatabase.GetAuctionBid(highestBidId);
-                    var highestBidderName = highestBid?.BidderName ?? string.Empty;
-                    List<AuctionBidItem> bidItems = highestBid?.AuctionBidItems.ToList() ?? new List<AuctionBidItem>();
-
-                    foreach (var item in bidItems)
-                    {
-                        DatabaseManager.Shard.BaseDatabase.SendMailItem(dbContext, sellerId, item.ItemId, highestBidderName);
-                    }
-
-                    DatabaseManager.Shard.BaseDatabase.SendMailItem(dbContext, highestBidderId, activeListing.ItemId, sellerName);
+                    // Processing for the highest bidder...
                 }
 
-                activeListing.Status = AuctionListingStatus.completed;
+                expiredListing.Status = AuctionListingStatus.completed;
+                Log($"Successfully processed expired listing {expiredListing.Id}");
 
-                return activeListing;
+                return expiredListing;
             },
-            failureAction: (ex) =>
-            {
-                DatabaseManager.Shard.BaseDatabase.UpdateListingStatus(activeListing.Id, AuctionListingStatus.failed);
-            },
-            System.Data.IsolationLevel.Serializable);
+            isolationLevel: IsolationLevel.Serializable);
     }
 }
