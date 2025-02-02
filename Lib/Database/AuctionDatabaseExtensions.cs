@@ -1,12 +1,10 @@
-﻿using System.Runtime.CompilerServices;
-using ACE.Database;
+﻿using ACE.Database;
 using ACE.Database.Models.Shard;
 using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Auction;
 using ACE.Mods.Legend.Lib.Auction.Models;
 using ACE.Mods.Legend.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ACE.Mods.Legend.Lib.Database;
 
@@ -15,7 +13,6 @@ public static class AuctionDatabaseExtensions
     public static T ExecuteInTransaction<T>(
        this ShardDatabase database,
        Func<AuctionDbContext, T> executeAction,
-       Action<Exception>? failureAction = null,
        System.Data.IsolationLevel isolationLevel = System.Data.IsolationLevel.ReadCommitted)
     {
         using (var context = new AuctionDbContext())
@@ -50,7 +47,6 @@ public static class AuctionDatabaseExtensions
                         ModManager.Log($"[DATABASE] Transaction rollback failed: {rollbackEx}", ModManager.LogLevel.Error);
                     }
 
-                    failureAction?.Invoke(ex);
                     throw;
                 }
             });
@@ -249,14 +245,13 @@ public static class AuctionDatabaseExtensions
         }
     }
 
-    public static List<AuctionListing>? GetExpiredListings(this ShardDatabase database, double timestamp, uint status)
+    public static List<uint> GetExpiredListings(this ShardDatabase database, double timestamp, AuctionListingStatus status)
     {
         using (var context = new AuctionDbContext())
         {
             return context.AuctionListing
-                .AsNoTracking()
-                .Where(auction => (uint)auction.Status == status)
-                .Where(auction => Time.GetDateTimeFromTimestamp(timestamp) > auction.EndTime)
+                .Where(auction => Time.GetDateTimeFromTimestamp(timestamp) > auction.EndTime && auction.Status == status)
+                .Select(l => l.Id)
                 .ToList();
         }
     }

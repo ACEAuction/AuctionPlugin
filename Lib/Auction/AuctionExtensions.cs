@@ -2,15 +2,12 @@
 using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
-using ACE.Server.Command.Handlers;
 using ACE.Server.Network.GameMessages.Messages;
-using ACE.Shared;
 using static ACE.Server.WorldObjects.Player;
 using ACE.Mods.Legend.Lib.Database;
 using ACE.Mods.Legend.Lib.Auction.Models;
 using ACE.Mods.Legend.Lib.Database.Models;
-using ACE.Server.Network.GameMessages;
-using ACE.Mods.Legend.Lib.Auction.Network;
+
 using ACE.Entity;
 using ACE.Mods.Legend.Lib.Common.Spells;
 
@@ -94,19 +91,24 @@ public static class AuctionExtensions
             remainingTime: remainingTime
         );
 
-        return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
-            executeAction: dbContext =>
-            {
-                var sellOrder = DatabaseManager.Shard.BaseDatabase.PlaceAuctionSellOrder(dbContext, createSellOrder);
-                sellContext.SellOrder = sellOrder;
+        try
+        {
+            return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
+                executeAction: dbContext =>
+                {
+                    var sellOrder = DatabaseManager.Shard.BaseDatabase.PlaceAuctionSellOrder(dbContext, createSellOrder);
+                    sellContext.SellOrder = sellOrder;
 
-                ProcessSell(player, sellContext, dbContext);
-                return sellOrder; 
-            },
-            failureAction: exception =>
-            {
-                HandleCreateSellOrderFailure(player, sellContext, exception.Message);
-            });
+                    ProcessSell(player, sellContext, dbContext);
+                    return sellOrder;
+                });
+        }
+        catch (Exception ex)
+        {
+            HandleCreateSellOrderFailure(player, sellContext, ex.Message);
+            throw;
+        }
+
     }
 
     private static void ProcessSell(Player player, CreateSellOrderContext sellContext, AuctionDbContext dbContext)
