@@ -63,19 +63,19 @@ public static class GameMessageGetPostListingsRequest
             List<AuctionListing> listings = session.Player.GetPostAuctionListings(request.Data);
 
             var response = new JsonResponse<List<AuctionListing>>(data: listings);
-            session.Network.EnqueueSend(new GameMessageGetListingsResponse(response));
+            session.Network.EnqueueSend(new GameMessageGetPostListingsResponse(response));
         }
         catch (AuctionFailure ex)
         {
             ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<List<AuctionListing>>(data: null, success: false, errorCode: (int)ex.Code, ex.Message);
-            session.Network.EnqueueSend(new GameMessageGetListingsResponse(response));
+            session.Network.EnqueueSend(new GameMessageGetPostListingsResponse(response));
         }
         catch (Exception ex)
         {
             ModManager.Log(ex.ToString(), ModManager.LogLevel.Error);
             var response = new JsonResponse<List<AuctionListing>>(data: null, success: false, errorCode: (int)FailureCode.Auction.Unknown, "Internal Server Error!");
-            session.Network.EnqueueSend(new GameMessageGetListingsResponse(response));
+            session.Network.EnqueueSend(new GameMessageGetPostListingsResponse(response));
         }
     }
 }
