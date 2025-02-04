@@ -1,10 +1,6 @@
-﻿using ACE.Mods.Legend.Lib.Database.Models;
+﻿using ACE.Mods.Legend.Lib.Common;
+using ACE.Mods.Legend.Lib.Database.Models;
 using ACE.Server.Network.GameMessages;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ACE.Mods.Legend.Lib.Auction.Network;
 
@@ -14,30 +10,36 @@ public enum AuctionGameMessageOpcode : uint
     CreateSellOrderResponse = 0x10002,
     GetPostListingsRequest = 0x10003,
     GetPostListingsResponse = 0x10004,
+    GetInboxItemsRequest = 0x10005,
+    GetInboxItemsResponse = 0x10006,
+    InboxNotificationResponse = 0x10007,
+    CollectInboxItemsRequest = 0x10008,
+    CollectInboxItemsResponse = 0x10008,
 }
-
-public class JsonResponse<T>
+public class GameMessageCollectInboxItemResponse : GameMessage
 {
-    public bool Success { get; set; }
-    public int? ErrorCode { get; set; }
-    public string? ErrorMessage { get; set; }
-    public T? Data { get; set; }
-
-    public JsonResponse(T? data, bool success = true, int? errorCode = null, string? errorMessage = null)
+    public GameMessageCollectInboxItemResponse(JsonResponse<object> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.CollectInboxItemsResponse, GameMessageGroup.UIQueue)
     {
-        Success = success;
-        ErrorCode = errorCode;
-        ErrorMessage = errorMessage ?? string.Empty;
-        Data = data;
+        this.WriteJson(response);
     }
 }
-public class JsonRequest<T>
-{
-    public T? Data { get; set; }
 
-    public JsonRequest(T? data)
+public class GameMessageInboxNotificationResponse : GameMessage
+{
+    public GameMessageInboxNotificationResponse(JsonResponse<object> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.InboxNotificationResponse, GameMessageGroup.UIQueue)
     {
-        Data = data;
+        this.WriteJson(response);
+    }
+}
+
+public class GameMessageGetInboxItemsResponse : GameMessage
+{
+    public GameMessageGetInboxItemsResponse(JsonResponse<List<MailItem>> response)
+        : base((GameMessageOpcode)AuctionGameMessageOpcode.GetInboxItemsResponse, GameMessageGroup.UIQueue)
+    {
+        this.WriteJson(response);
     }
 }
 
@@ -49,6 +51,7 @@ public class GameMessageGetPostListingsResponse : GameMessage
         this.WriteJson(response);
     }
 }
+
 public class GameMessageCreateSellOrderResponse : GameMessage
 {
     public GameMessageCreateSellOrderResponse(JsonResponse<AuctionSellOrder> response)

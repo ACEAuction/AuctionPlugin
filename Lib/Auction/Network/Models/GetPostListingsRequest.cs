@@ -1,6 +1,6 @@
 ﻿using ACE.Mods.Legend.Lib.Common.Errors;
 
-namespace ACE.Mods.Legend.Lib.Auction.Models;
+namespace ACE.Mods.Legend.Lib.Auction.Network.Models;
 public enum ListingColumn
 {
     Name = 1,
@@ -10,6 +10,7 @@ public enum ListingColumn
     Seller = 5,
     Currency = 6,
     HighestBidder = 7,
+    Duration = 8,
 }
 
 public enum ListingSortDirection
@@ -21,7 +22,7 @@ public enum ListingSortDirection
 public class GetPostListingsRequest
 {
     public string SearchQuery { get; set; } = string.Empty;
-    public uint SortBy { get; set; } 
+    public uint SortBy { get; set; }
     public uint SortDirection { get; set; }
     public uint PageSize { get; set; } = 15;
     public uint PageNumber { get; set; }
@@ -34,7 +35,7 @@ public class GetPostListingsRequest
         if (SortDirection == 0 || !Enum.IsDefined(typeof(ListingSortDirection), (int)SortDirection))
             throw new AuctionFailure("Invalid SortDirection value provided.", FailureCode.Auction.GetPostListingsRequest);
 
-        if (PageSize == 0)  
+        if (PageSize == 0)
             throw new AuctionFailure("PageSize must be greter than 0.", FailureCode.Auction.GetPostListingsRequest);
 
         if (PageNumber == 0)

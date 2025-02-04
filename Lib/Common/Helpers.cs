@@ -1,8 +1,4 @@
-﻿using ACE.Entity;
-using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Common.Spells;
-
-namespace ACE.Mods.Legend.Lib.Common;
+﻿namespace ACE.Mods.Legend.Lib.Common;
 
 public static class Helpers
 {
