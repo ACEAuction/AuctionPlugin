@@ -48,7 +48,7 @@ CREATE TABLE auction_bid (
     `auction_listing_id` INT UNSIGNED NOT NULL,
     `bid_amount` INT UNSIGNED DEFAULT 0 NOT NULL,  
     `bid_time` DATETIME NOT NULL,
-		`resolved` BOOL NOT NULL DEFAULT FALSE,
+	`resolved` BOOL NOT NULL DEFAULT FALSE,
     PRIMARY KEY (`id`),
     FOREIGN KEY (`auction_listing_id`) REFERENCES `auction_listing`(`id`) 
 );
@@ -63,9 +63,9 @@ CREATE TABLE auction_bid_item (
 
 CREATE TABLE mail_item (
     `id` INT UNSIGNED AUTO_INCREMENT NOT NULL COMMENT 'Unique Id for an auction payout item.',
-		`from` VARCHAR(50) NOT NULL,
+	`from` VARCHAR(50) NOT NULL,
     `item_id` INT UNSIGNED NOT NULL,
-		`receiver_id` INT UNSIGNED NOT NULL,
+	`receiver_id` INT UNSIGNED NOT NULL,
     `status` ENUM('pending', 'sent', 'failed') DEFAULT 'pending',
     PRIMARY KEY (`id`)
 );

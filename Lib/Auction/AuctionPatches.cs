@@ -1,18 +1,10 @@
-﻿using ACE.Database;
-using ACE.Database.Models.Shard;
-using ACE.Entity;
-using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Auction.Models;
-using ACE.Mods.Legend.Lib.Auction.Network;
-using ACE.Mods.Legend.Lib.Common.Errors;
+﻿using ACE.Database.Models.Shard;
 using ACE.Mods.Legend.Lib.Database;
 using ACE.Mods.Legend.Lib.Database.Models;
 using ACE.Server;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages;
-using ACE.Server.Network.GameMessages.Messages;
 using ACE.Server.Network.Managers;
-using ACE.Shared;
 using Microsoft.EntityFrameworkCore;
 using static ACE.Server.Network.Managers.InboundMessageManager;
 
@@ -273,10 +265,24 @@ namespace ACE.Mods.Legend.Lib.Auction
                       .IsRequired();
 
                 entity.Property(e => e.From)
-                      .HasColumnName("from");
+                      .HasColumnName("from")
+                      .IsRequired();
+
+                entity.Property(e => e.Subject)
+                      .HasColumnName("subject")
+                      .IsRequired();
+                      
 
                 entity.Property(e => e.ReceiverId)
                       .HasColumnName("receiver_id")
+                      .IsRequired();
+
+                entity.Property(e => e.CreatedTime)
+                      .HasColumnName("created_time")
+                      .IsRequired();
+
+                entity.Property(e => e.IconId)
+                      .HasColumnName("icon_id")
                       .IsRequired();
 
                 entity.Property(e => e.Status)

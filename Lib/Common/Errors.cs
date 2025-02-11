@@ -9,6 +9,8 @@ public static class FailureCode
         TransferItemFailure = 2,
         ProcessSell = 3,
         GetPostListingsRequest = 4,
+        CollectInboxItemsRequest = 5,
+        GetInboxItemsRequest = 6
     }
 }
 

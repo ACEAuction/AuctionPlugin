@@ -1,25 +1,16 @@
-﻿using ACE.Database;
-using ACE.Entity.Models;
+﻿using ACE.Entity.Models;
 using ACE.Mods.Legend.Lib.Common;
 using ACE.Mods.Legend.Lib.Common.Errors;
 using ACE.Server.Network.GameMessages.Messages;
 using static ACE.Server.WorldObjects.Player;
-using ACE.Mods.Legend.Lib.Database;
-using ACE.Mods.Legend.Lib.Auction.Models;
-using ACE.Mods.Legend.Lib.Database.Models;
-
 using ACE.Entity;
 using ACE.Mods.Legend.Lib.Common.Spells;
-
+using ACE.Mods.Legend.Lib.Auction.Network;
 
 namespace ACE.Mods.Legend.Lib.Auction;
 
 public static class AuctionExtensions
 {
-    static Settings Settings => PatchClass.Settings;
-
-    private static readonly ushort MaxAuctionHours = 168; 
-
     private const string AuctionPrefix = "[AuctionHouse]";
 
     public static void SendAuctionMessage(this Player player, string message, ChatMessageType messageType = ChatMessageType.System)
@@ -27,123 +18,14 @@ public static class AuctionExtensions
         player.Session.Network.EnqueueSend(new GameMessageSystemChat($"{AuctionPrefix} {message}", messageType));
     }
 
-    public static List<AuctionListing> GetPostAuctionListings(this Player player, GetPostListingsRequest request)
-    {
-        return DatabaseManager.Shard.BaseDatabase.GetPostAuctionListings(
-            player.Account.AccountId, 
-            request.SortBy, 
-            request.SortDirection, 
-            request.SearchQuery, 
-            request.PageNumber, 
-            request.PageSize);
-    }
-
     /// <summary>
-    /// This context is used throughout the sell order transaction usecase
+    /// This is called when a mail item is sent, to trigger the client to fetch updates list of mail items
     /// </summary>
-    public class CreateSellOrderContext
+    /// <param name="player"></param>
+    public static void SendMailNotification(this Player player)
     {
-        public List<WorldObject> RemovedItems { get; }
-        public AuctionSellOrder SellOrder { get; set; }
-        public CreateSellOrder CreateSellOrder { get;}
-        public TimeSpan RemainingTime { get; }
-
-        public CreateSellOrderContext(List<WorldObject> removedItems, CreateSellOrder auctionSell, TimeSpan remainingTime)
-        {
-            RemovedItems = removedItems ?? throw new ArgumentNullException(nameof(removedItems));
-            RemainingTime = remainingTime;
-            CreateSellOrder = auctionSell;
-        }
-    }
-
-    public static AuctionSellOrder CreateAuctionSellOrder(this Player player, CreateSellOrderRequest request)
-    {
-        var currencyWcid = request.CurrencyWcid;
-        Weenie currencyWeenie = DatabaseManager.World.GetCachedWeenie(currencyWcid) 
-            ?? throw new AuctionFailure($"Failed to get currency name from weenie with WeenieClassId = {currencyWcid}", FailureCode.Auction.SellValidation);
-
-        var sellItem = player.GetInventoryItem(request.ItemId)
-            ?? throw new AuctionFailure("The specified item could not be found in the player's inventory.", FailureCode.Auction.ProcessSell);
-
-        var hoursDuration = request.HoursDuration;
-        var startTime = DateTime.UtcNow;
-        var endTime = Settings.IsDev ? startTime.AddSeconds(request.HoursDuration) : startTime.AddHours(hoursDuration);
-
-        var createSellOrder = new CreateSellOrder()
-        {
-            Item = sellItem,
-            Seller = player,
-            Currency = currencyWeenie,
-            NumberOfStacks = request.NumberOfStacks,
-            StackSize = request.StackSize,
-            StartPrice = request.StartPrice,
-            BuyoutPrice = request.BuyoutPrice,
-            StartTime = startTime,
-            HoursDuration = hoursDuration,
-            EndTime = endTime
-        };
-
-        var remainingTime = createSellOrder.EndTime - createSellOrder.StartTime;
-
-        var sellContext = new CreateSellOrderContext(
-            removedItems: new List<WorldObject>(),
-            auctionSell: createSellOrder,
-            remainingTime: remainingTime
-        );
-
-        try
-        {
-            return DatabaseManager.Shard.BaseDatabase.ExecuteInTransaction(
-                executeAction: dbContext =>
-                {
-                    var sellOrder = DatabaseManager.Shard.BaseDatabase.PlaceAuctionSellOrder(dbContext, createSellOrder);
-                    sellContext.SellOrder = sellOrder;
-
-                    ProcessSell(player, sellContext, dbContext);
-                    return sellOrder;
-                });
-        }
-        catch (Exception ex)
-        {
-            HandleCreateSellOrderFailure(player, sellContext, ex.Message);
-            throw;
-        }
-
-    }
-
-    private static void ProcessSell(Player player, CreateSellOrderContext sellContext, AuctionDbContext dbContext)
-    {
-        var numOfStacks = sellContext.CreateSellOrder.NumberOfStacks;
-        var stackSize = sellContext.CreateSellOrder.StackSize;
-        var item = sellContext.CreateSellOrder.Item;
-
-        if (sellContext.CreateSellOrder.HoursDuration > MaxAuctionHours)
-            throw new AuctionFailure($"Failed validation for auction sell, an auction end time can not exceed 168 hours (a week)", FailureCode.Auction.SellValidation);
-
-        if (item.ItemWorkmanship != null && (numOfStacks > 1 || stackSize > 1))
-            throw new AuctionFailure("A loot-generated item cannot be traded if the number of stacks is greater than 1.", FailureCode.Auction.ProcessSell);
-
-        var totalStacks = numOfStacks * stackSize; 
-
-        if (totalStacks > item.StackSize)
-            throw new AuctionFailure("The item does not have enough stacks to complete the auction sale.", FailureCode.Auction.ProcessSell);
-
-        var sellItemMaxStackSize = item.MaxStackSize ?? 1;
-
-        for (var i = 0; i < numOfStacks; i++)
-        {
-            player.RemoveItemForTransfer(item.Guid.Full, out WorldObject removedItem, (int?)stackSize);
-            sellContext.RemovedItems.Add(removedItem);
-            DatabaseManager.Shard.BaseDatabase.PlaceAuctionListing(dbContext, removedItem.Guid.Full, sellContext.SellOrder.Id, sellContext.CreateSellOrder);
-        }
-    }
-
-    private static void HandleCreateSellOrderFailure(Player player, CreateSellOrderContext sellContext, string errorMessage)
-    {
-        foreach (var removedItem in sellContext.RemovedItems)
-        {
-            DatabaseManager.Shard.BaseDatabase.SendMailItem(sellContext.CreateSellOrder.Seller.Account.AccountId, removedItem.Guid.Full, "Auction House");
-        }
+        var response = new JsonResponse<object>(data: null, success: true);
+        player.Session.Network.EnqueueSend(new GameMessageInboxNotificationResponse(response));
     }
 
     public static bool HasItemOnPerson(this Player player, uint itemId, out WorldObject foundItem)
@@ -152,7 +34,7 @@ public static class AuctionExtensions
         return foundItem != null;
     }
 
-    private static void RemoveItemForTransfer(this Player player, uint itemToTransfer, out WorldObject itemToRemove, int? amount = null)
+    public static void RemoveItemForTransfer(this Player player, uint itemToTransfer, out WorldObject itemToRemove, int? amount = null)
     {
         if (player.IsBusy || player.Teleporting || player.suicideInProgress)
             throw new AuctionFailure($"The item cannot be transferred, you are too busy", FailureCode.Auction.TransferItemFailure);
@@ -173,10 +55,12 @@ public static class AuctionExtensions
         if (!player.RemoveItemForGive(item, itemFoundInContainer, itemWasEquipped, itemRootOwner, removeAmount, out WorldObject itemToGive))
             throw new AuctionFailure($"The item cannot be transferred {item.NameWithMaterial}, failed to remove item from location", FailureCode.Auction.TransferItemFailure);
 
+        itemToGive.SaveBiotaToDatabase();
+
         itemToRemove = itemToGive;
     }
 
-      public static Position LocToPosition(this Position pos, string location)
+    public static Position LocToPosition(this Position pos, string location)
     {
         var parameters = location.Split(' ');
         uint cell;
@@ -399,7 +283,8 @@ public static class AuctionExtensions
             {
                 sb.Append($", Wield Lvl {wieldDiff.Value}");
             }
-        } else
+        }
+        else
         {
             if (Constants.Dictionaries.SkillInfo.ContainsKey(weaponSkill.Value) && wieldDiff.HasValue)
                 sb.Append($", {Constants.Dictionaries.SkillInfo[weaponSkill.Value]} {wieldDiff.Value}");

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ACE.Mods.Legend.Lib.Common.Errors;
+﻿using ACE.Mods.Legend.Lib.Common.Errors;
 
-namespace ACE.Mods.Legend.Lib.Auction.Models;
+namespace ACE.Mods.Legend.Lib.Auction.Network.Models;
 
 public class CreateSellOrderRequest
 {
@@ -13,7 +8,7 @@ public class CreateSellOrderRequest
     public uint StartPrice { get; set; }
     public uint BuyoutPrice { get; set; }
     public uint NumberOfStacks { get; set; }
-    public uint StackSize { get;  set; }
+    public uint StackSize { get; set; }
     public uint CurrencyWcid { get; set; }
     public uint HoursDuration { get; set; }
     public void Validate()
