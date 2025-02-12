@@ -1,7 +1,7 @@
-﻿using ACE.Mods.Legend.Lib.Common;
+﻿using ACE.Mods.Auction.Lib.Common;
 using ACE.Server.Network.GameMessages;
 
-namespace ACE.Mods.Legend.Lib.Auction.Network;
+namespace ACE.Mods.Auction.Lib.Auction.Network;
 
 public static class NetworkingExtensions
 {

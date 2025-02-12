@@ -1,6 +1,6 @@
-﻿using ACE.Mods.Legend.Lib.Common.Spells;
+﻿using ACE.Mods.Auction.Lib.Common.Spells;
 
-namespace ACE.Mods.Legend
+namespace ACE.Mods.Auction
 {
     [HarmonyPatch]
     public class PatchClass

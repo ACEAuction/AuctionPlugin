@@ -1,6 +1,6 @@
 ﻿using ACE.Database.Models.Shard;
-using ACE.Mods.Legend.Lib.Database;
-using ACE.Mods.Legend.Lib.Database.Models;
+using ACE.Mods.Auction.Lib.Database;
+using ACE.Mods.Auction.Lib.Database.Models;
 using ACE.Server;
 using ACE.Server.Managers;
 using ACE.Server.Network.GameMessages;
@@ -8,7 +8,7 @@ using ACE.Server.Network.Managers;
 using Microsoft.EntityFrameworkCore;
 using static ACE.Server.Network.Managers.InboundMessageManager;
 
-namespace ACE.Mods.Legend.Lib.Auction
+namespace ACE.Mods.Auction.Lib.Auction
 {
     [HarmonyPatchCategory(nameof(AuctionPatches))]
     public static class AuctionPatches

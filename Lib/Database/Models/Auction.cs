@@ -1,4 +1,4 @@
-﻿namespace ACE.Mods.Legend.Lib.Database.Models;
+﻿namespace ACE.Mods.Auction.Lib.Database.Models;
 
 public enum AuctionListingStatus
 {

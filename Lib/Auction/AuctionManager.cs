@@ -2,16 +2,16 @@
 using ACE.Database;
 using ACE.Entity;
 using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Auction.Models;
-using ACE.Mods.Legend.Lib.Auction.Network.Models;
-using ACE.Mods.Legend.Lib.Common.Errors;
-using ACE.Mods.Legend.Lib.Database;
-using ACE.Mods.Legend.Lib.Database.Models;
+using ACE.Mods.Auction.Lib.Auction.Models;
+using ACE.Mods.Auction.Lib.Auction.Network.Models;
+using ACE.Mods.Auction.Lib.Common.Errors;
+using ACE.Mods.Auction.Lib.Database;
+using ACE.Mods.Auction.Lib.Database.Models;
 using ACE.Server.Factories;
 using ACE.Server.Managers;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACE.Mods.Legend.Lib.Auction;
+namespace ACE.Mods.Auction.Lib.Auction;
 
 public static class AuctionManager
 {

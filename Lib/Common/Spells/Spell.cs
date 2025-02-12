@@ -1,4 +1,4 @@
-﻿namespace ACE.Mods.Legend.Lib.Common.Spells;
+﻿namespace ACE.Mods.Auction.Lib.Common.Spells;
 
 /// https://github.com/Mag-nus/Mag-Plugins/blob/master/Shared/Spells/Spell.cs
 /// <summary>

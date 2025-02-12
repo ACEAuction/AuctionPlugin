@@ -3,7 +3,7 @@ using System.Globalization;
 
 /// https://github.com/Mag-nus/Mag-Plugins/blob/master/Shared/Spells/SpellTools.cs
 
-namespace ACE.Mods.Legend.Lib.Common.Spells;
+namespace ACE.Mods.Auction.Lib.Common.Spells;
 
 public static class SpellTools
 {

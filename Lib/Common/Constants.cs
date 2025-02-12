@@ -1,6 +1,6 @@
 ﻿using ACE.Entity;
 
-namespace ACE.Mods.Legend.Lib.Common;
+namespace ACE.Mods.Auction.Lib.Common;
 
 internal class Constants
 {

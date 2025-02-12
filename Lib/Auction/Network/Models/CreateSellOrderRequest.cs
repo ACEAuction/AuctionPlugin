@@ -1,6 +1,6 @@
-﻿using ACE.Mods.Legend.Lib.Common.Errors;
+﻿using ACE.Mods.Auction.Lib.Common.Errors;
 
-namespace ACE.Mods.Legend.Lib.Auction.Network.Models;
+namespace ACE.Mods.Auction.Lib.Auction.Network.Models;
 
 public class CreateSellOrderRequest
 {
