@@ -1,13 +1,13 @@
 ﻿using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Common;
-using ACE.Mods.Legend.Lib.Common.Errors;
+using ACE.Mods.Auction.Lib.Common;
+using ACE.Mods.Auction.Lib.Common.Errors;
 using ACE.Server.Network.GameMessages.Messages;
 using static ACE.Server.WorldObjects.Player;
 using ACE.Entity;
-using ACE.Mods.Legend.Lib.Common.Spells;
-using ACE.Mods.Legend.Lib.Auction.Network;
+using ACE.Mods.Auction.Lib.Common.Spells;
+using ACE.Mods.Auction.Lib.Auction.Network;
 
-namespace ACE.Mods.Legend.Lib.Auction;
+namespace ACE.Mods.Auction.Lib.Auction;
 
 public static class AuctionExtensions
 {

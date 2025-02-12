@@ -1,4 +1,4 @@
-﻿namespace ACE.Mods.Legend.Lib.Common.Errors;
+﻿namespace ACE.Mods.Auction.Lib.Common.Errors;
 
 public static class FailureCode
 {

@@ -2,13 +2,13 @@
 using ACE.Database;
 using ACE.Database.Models.Shard;
 using ACE.Entity.Models;
-using ACE.Mods.Legend.Lib.Auction;
-using ACE.Mods.Legend.Lib.Auction.Models;
-using ACE.Mods.Legend.Lib.Auction.Network.Models;
-using ACE.Mods.Legend.Lib.Database.Models;
+using ACE.Mods.Auction.Lib.Auction;
+using ACE.Mods.Auction.Lib.Auction.Models;
+using ACE.Mods.Auction.Lib.Auction.Network.Models;
+using ACE.Mods.Auction.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACE.Mods.Legend.Lib.Database;
+namespace ACE.Mods.Auction.Lib.Database;
 
 public static class AuctionDatabaseExtensions
 {

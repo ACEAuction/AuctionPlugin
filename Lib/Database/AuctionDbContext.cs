@@ -1,8 +1,8 @@
 ﻿using ACE.Database.Models.Shard;
-using ACE.Mods.Legend.Lib.Database.Models;
+using ACE.Mods.Auction.Lib.Database.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACE.Mods.Legend.Lib.Database;
+namespace ACE.Mods.Auction.Lib.Database;
 
 public partial class AuctionDbContext : ShardDbContext
 {

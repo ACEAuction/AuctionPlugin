@@ -1,6 +1,6 @@
-﻿using ACE.Mods.Legend.Lib.Auction;
+﻿using ACE.Mods.Auction.Lib.Auction;
 
-namespace ACE.Mods.Legend
+namespace ACE.Mods.Auction
 {
     public class Settings
     {

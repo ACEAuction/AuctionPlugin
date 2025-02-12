@@ -1,6 +1,6 @@
 ﻿using ACE.Entity.Models;
 
-namespace ACE.Mods.Legend.Lib.Auction.Models;
+namespace ACE.Mods.Auction.Lib.Auction.Models;
 
 /// <summary>
 /// This context is used throughout the sell order transaction usecase

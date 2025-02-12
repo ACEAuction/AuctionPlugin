@@ -1,6 +1,6 @@
 ﻿using ACE.Server;
 
-namespace ACE.Mods.Legend.Lib.Database
+namespace ACE.Mods.Auction.Lib.Database
 {
     internal class DbPatcher
     {

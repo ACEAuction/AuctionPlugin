@@ -1,8 +1,8 @@
-﻿using ACE.Mods.Legend.Lib.Common;
-using ACE.Mods.Legend.Lib.Database.Models;
+﻿using ACE.Mods.Auction.Lib.Common;
+using ACE.Mods.Auction.Lib.Database.Models;
 using ACE.Server.Network.GameMessages;
 
-namespace ACE.Mods.Legend.Lib.Auction.Network;
+namespace ACE.Mods.Auction.Lib.Auction.Network;
 
 public enum AuctionGameMessageOpcode : uint
 {

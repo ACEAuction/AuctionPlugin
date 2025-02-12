@@ -1,4 +1,4 @@
-﻿namespace ACE.Mods.Legend.Lib.Common;
+﻿namespace ACE.Mods.Auction.Lib.Common;
 
 public class JsonResponse<T>
 {

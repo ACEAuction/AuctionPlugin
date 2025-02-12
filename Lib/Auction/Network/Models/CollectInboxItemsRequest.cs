@@ -1,4 +1,4 @@
-﻿namespace ACE.Mods.Legend.Lib.Auction.Network.Models;
+﻿namespace ACE.Mods.Auction.Lib.Auction.Network.Models;
 
 public class CollectInboxItemsRequest
 {
