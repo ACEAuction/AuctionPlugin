@@ -3,7 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34701.34
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ACE.Mods.Auction", "ACE.Mods.Auction.csproj", "{EF2868B5-2FAF-44E9-93B3-9E792261B704}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ACE.Mods.Auction", "Server\ACE.Mods.Auction.csproj", "{EF2868B5-2FAF-44E9-93B3-9E792261B704}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E3308A71-67AB-4C4F-8692-A8EE87A4E620}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build.yml = .github\workflows\build.yml
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AuctionHouse", "Client\AuctionHouse.csproj", "{DE200B3E-2034-4AC4-90BB-D37C995C25E0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +22,10 @@ Global
 		{EF2868B5-2FAF-44E9-93B3-9E792261B704}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EF2868B5-2FAF-44E9-93B3-9E792261B704}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EF2868B5-2FAF-44E9-93B3-9E792261B704}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DE200B3E-2034-4AC4-90BB-D37C995C25E0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE200B3E-2034-4AC4-90BB-D37C995C25E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE200B3E-2034-4AC4-90BB-D37C995C25E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE200B3E-2034-4AC4-90BB-D37C995C25E0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
