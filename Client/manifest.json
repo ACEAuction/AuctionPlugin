@@ -1,0 +1,9 @@
+{
+  "name": "AuctionHouse",
+  "author": "Chorizite",
+  "entryfile": "AuctionHouse.dll",
+  "version": "0.0.1",
+  "description": "AuctionHouse",
+  "dependencies": [ "RmlUi@0.0.5", "AC@0.0.2" ],
+  "environments": [ "Client" ]
+}

@@ -1,0 +1,382 @@
+﻿<rml>
+	<head>
+    <title>Auction House</title>
+		<link type="text/template" href="@templates/tabpanel" />
+    <script src="post/post-form.lua"></script>
+    <script src="post/post-auction-listings.lua"></script>
+    <script src="inbox/inbox-items.lua"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        position: relative;
+        font-family: Tahoma;
+        font-weight: bold;
+        font-size: 0.8em;
+      }
+
+      .inner {
+        padding: 0;
+        background-color: #000000dd;
+      }
+
+      body h4 {
+        font-size: 1.1rem;
+        color: #eea300dd;
+        margin: 0;
+        font-weight: bold;
+      } 
+
+      #post {
+        display: flex;
+        width: 80vw;
+        height: 60vh;
+      }
+
+      #inbox {
+        width: 30vw;
+        height: 60vh;
+      }
+
+      .inbox-container {
+        padding: 1rem;
+        width: 100%;
+        height: 100%;
+        gap: 1rem;
+        flex-direction: column;
+      }
+
+      .inbox-items-pagination {
+        flex-shrink: 0;
+        margin-top: auto;
+      }
+
+      .inbox-items {
+        flex-shrink: 1;
+        overflow: auto;
+      }
+
+      .inbox-list-item {
+        margin-bottom: 0.5rem;
+        gap: 1rem;
+        border-radius: 0.85rem;
+        padding: 1rem 0.5rem;
+        background: rgba(59, 49, 27, 50%);
+      }
+
+      .inbox-list-item:hover {
+        background: rgba(59, 49, 27, 90%);
+      }
+
+      .inbox-list-item-info-from {
+        color: #eea300dd;
+      }
+
+      .inbox-items-collect-all {
+        width: 100%;
+      }
+      
+      .post-auction-form {
+        flex: 1.25;
+        padding: 1rem;
+        border-right: 1px #eea300dd;
+      }
+
+      .post-form {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .post-form-item-container h4 {
+        margin-bottom: 0.5rem;
+      }
+
+      .post-form-item {
+        width: 100%;
+      }
+
+      .post-form-item > * {
+        display: inline-block;
+        text-align: center;
+        vertical-align: center;
+        margin-right: 0.5rem;
+      }
+
+      .post-form-item-container button {
+      }
+
+      button.post-form-submit  {
+        width: 100%;
+      }
+
+      
+
+      .post-form input[type="text"] {
+        width: 5rem;
+        align-self: center;
+      }
+
+      .post-auction-listings {
+        flex: 3;
+        padding: 1rem;
+        height: 100%;
+      }
+
+      .post-auction-listings-container {
+        position: relative;
+        height: 100%;
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .post-auction-listings-controls {
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+      }
+
+      .post-auction-listings-search {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .post-auction-listings-pagination {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+      }
+
+      .post-auction-listings-pagination button {
+        width: 30%;
+      }
+
+      .post-auction-listings-pagination > * {
+        
+      }
+
+      .post-auction-listings-list {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        top: 7rem;
+        overflow: auto;
+      }
+
+      .post-auction-listings-table {
+        padding: 0 1rem;
+      }
+
+      .inbox-items-pagination {
+        margin-top: auto;
+        justify-content: flex-end;
+        padding: 1rem 0;
+        padding-bottom: 0;
+        gap: 0.5rem;
+      }
+
+      .post-auction-listings-pagination input[type="text"] {
+        width: 10%;
+      }
+      
+      .post-auction-listings-table {
+        position: relative;
+      }
+
+      .post-auction-listings-header {
+        margin-bottom: 1rem;
+      }
+
+      .post-auction-listings-header-item {
+        border: 1px rgba(59, 49, 27, 90%);
+        border-radius: 0.2rem;
+        padding: 0.5rem;
+      }
+
+      .post-auction-listings-list-container {
+        flex-direction: column;
+      }
+
+      .post-auction-listings-item {
+        border-radius: 0.85rem;
+        padding: 1rem 0.5rem;
+        background: rgba(59, 49, 27, 50%);
+        margin-bottom: 0.5rem;
+        text-align: center;
+      }
+
+      .post-auction-listings-item:hover {
+        background: rgba(59, 49, 27, 90%);
+      }
+
+      .post-auction-listings-header-item-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+      }
+
+      .post-auction-listings-header-item-container img {
+        width: 1rem;
+        height: 1rem;
+      }
+
+      .post-auction-listings-item td {
+        vertical-align: middle;
+      }
+
+      .post-auction-listings-item-name-container {
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .post-auction-listings-item-name {
+        margin: auto;
+      }
+
+      .post-auction-listings-item-icon {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        decorator: image(dat://0x06000F6E);
+      }
+
+      .post-auction-listings-title, .post-form-title {
+        width: 100%;
+        background-color: #000000dd;
+        padding: 0.2rem;
+        font-size: 1rem;
+        font-weight: bold;
+        border: 1px #eea300dd;
+        border-radius: 0.2rem;
+        text-align: center;
+      }
+
+      .post-auction-error {
+        bottom: 0.3rem;
+        right: 0.3rem;
+        padding: 1rem;
+        text-align: center;
+        position: absolute;
+        font-size: 1.2rem;
+        color: red;
+      }
+
+      
+      
+      .icon-stack-label {
+        align-self: center;
+        font-size: 1.1rem;
+      }
+
+      .icon-stack {
+        decorator: image(dat://0x06000F6E);
+        width: 2.5rem;
+        height: 2.5rem;
+        position: relative;
+      }
+
+      .icon-stack > * {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+      }
+
+      .icon-stack .icon-drag-invalid {
+        decorator: image(dat://0x060011F8);
+        display: none;
+      }
+
+      .icon-stack .icon-drag-accept {
+        decorator: image(dat://0x060011F9);
+        display: none;
+      }
+
+      .has-drag-over .icon-stack .icon-drag-accept {
+        display: inline-block;
+      }
+
+      .has-drag-over-invalid .icon-stack .icon-drag-invalid {
+        display: inline-block;
+      }
+
+      .icon-stack .icon-item {
+        display: none;
+      }
+
+      .icon-stack .inbox-list-item-icon.icon-item {
+        display: inline-block;
+      }
+
+      .has-item .icon-stack .icon-item {
+        display: inline-block;
+      }
+
+      .name {
+        flex: 1;
+        font-size: 16px;
+        padding-left: 8dp;
+      }
+
+      .post-auction-browse {
+        flex-direction: column;
+        text-align: left;
+        padding: 1rem;
+        padding-right: 2rem;
+        margin: 0;
+      }
+
+      .browse-header {
+        margin-bottom: 1rem;
+        font-size: 1rem;
+      }
+
+      .browse-header h1 {
+        color: #eea300dd;
+        margin-bottom: 0.5rem;
+      }
+
+      .browse-header p {
+        color: #ddd;
+      }
+
+      .browse-search input {
+        width: 100%;
+      }
+    </style>
+	</head>
+	<body class="window" template="tabpanel">
+    <div class="inner">
+      <tabset>
+        <tab>Post</tab>
+        <panel>
+          <div id="post">
+            <div class="post-auction-form" />
+            <div class="post-auction-listings" />
+          </div>
+        </panel>
+        <tab>Browse</tab>
+        <panel>
+          <div id="browse">
+          </div>
+        </panel>
+        <tab>Inbox</tab>
+        <panel>
+          <div id="inbox">
+          </div>
+        </panel>
+	   </tabset>
+    </div>
+	</body>
+</rml>
