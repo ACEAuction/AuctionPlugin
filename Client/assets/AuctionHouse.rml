@@ -4,6 +4,7 @@
 		<link type="text/template" href="@templates/tabpanel" />
     <script src="post/post-form.lua"></script>
     <script src="post/post-auction-listings.lua"></script>
+    <script src="browse/browse.lua"></script>
     <script src="inbox/inbox-items.lua"></script>
     <style>
       * {
@@ -31,6 +32,12 @@
 
       #post {
         display: flex;
+        width: 80vw;
+        height: 60vh;
+      }
+
+      #browse {
+        padding: 1rem;
         width: 80vw;
         height: 60vh;
       }
@@ -127,8 +134,6 @@
         width: 100%;
       }
 
-      
-
       .post-form input[type="text"] {
         width: 5rem;
         align-self: center;
@@ -140,14 +145,13 @@
         height: 100%;
       }
 
-      .post-auction-listings-container {
+      .post-auction-listings-container, .browse-container {
         position: relative;
         height: 100%;
         width: 100%;
-        flex-direction: column;
       }
 
-      .post-auction-listings-controls {
+      .post-auction-listings-controls, .browse-controls {
         padding: 1rem;
         display: flex;
         align-items: center;
@@ -155,14 +159,14 @@
         font-size: 0.9rem;
       }
 
-      .post-auction-listings-search {
+      .post-auction-listings-search, .browse-search {
         flex: 1;
         display: flex;
         align-items: center;
         gap: 0.5rem;
       }
 
-      .post-auction-listings-pagination, .inbox-items-pagination {
+      .post-auction-listings-pagination, .inbox-items-pagination, .browse-pagination {
         flex: 1;
         display: flex;
         align-items: center;
@@ -170,11 +174,11 @@
         gap: 0.5rem;
       }
 
-      .post-auction-listings-pagination button {
+      .post-auction-listings-pagination button, .browse-pagination button {
         width: 30%;
       }
 
-      .post-auction-listings-list {
+      .post-auction-listings-list, .browse-list {
         position: absolute;
         bottom: 0;
         width: 100%;
@@ -182,33 +186,31 @@
         overflow: auto;
       }
 
-      .post-auction-listings-table {
+      .post-auction-listings-table, .browse-list-table {
         padding: 0 1rem;
       }
 
-      .post-auction-listings-pagination input[type="text"], .inbox-items-pagination input[type="text"] {
+      .post-auction-listings-pagination input[type="text"],
+      .inbox-items-pagination input[type="text"], 
+      .browse-pagination input[type="text"] {
         width: 10%;
       }
       
-      .post-auction-listings-table {
+      .post-auction-listings-table, .browse-list-table {
         position: relative;
       }
 
-      .post-auction-listings-header {
+      .post-auction-listings-header, .browse-list-header {
         margin-bottom: 1rem;
       }
 
-      .post-auction-listings-header-item {
+      .post-auction-listings-header-item, .browse-list-header-item {
         border: 1px rgba(59, 49, 27, 90%);
         border-radius: 0.2rem;
         padding: 0.5rem;
       }
 
-      .post-auction-listings-list-container {
-        flex-direction: column;
-      }
-
-      .post-auction-listings-item {
+      .post-auction-listings-item, .browse-list-item {
         border-radius: 0.85rem;
         padding: 1rem 0.5rem;
         background: rgba(59, 49, 27, 50%);
@@ -216,17 +218,17 @@
         text-align: center;
       }
 
-      .post-auction-listings-item:hover {
+      .post-auction-listings-item:hover, .browse-list-item:hover {
         background: rgba(59, 49, 27, 90%);
       }
 
-      .post-auction-listings-header-item-container {
+      .post-auction-listings-header-item-container, .browse-list-header-item-container {
         display: flex;
         align-items: center;
         justify-content: space-around;
       }
 
-      .post-auction-listings-header-item-container img {
+      .post-auction-listings-header-item-container img, .browse-list-header-item-container img {
         width: 1rem;
         height: 1rem;
       }
@@ -251,7 +253,7 @@
         decorator: image(dat://0x06000F6E);
       }
 
-      .post-auction-listings-title, .post-form-title {
+      .post-auction-listings-title, .post-form-title, .browse-title {
         width: 100%;
         background-color: #000000dd;
         padding: 0.2rem;
@@ -352,9 +354,6 @@
         color: #ddd;
       }
 
-      .browse-search input {
-        width: 100%;
-      }
     </style>
 	</head>
 	<body class="window" template="tabpanel">

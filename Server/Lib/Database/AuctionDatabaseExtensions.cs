@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Linq.Expressions;
 using ACE.Database;
 using ACE.Database.Models.Shard;
 using ACE.Entity.Models;
@@ -184,13 +185,16 @@ public static class AuctionDatabaseExtensions
         return listing;
     }
 
+    public static IQueryable<AuctionListing> GetListingsByPredicate(this ShardDatabase database, AuctionDbContext context, Expression<Func<AuctionListing, bool>> predicate)
+    {
+        return context.AuctionListing
+            .AsNoTracking()
+            .Where(predicate);
+    }
+
     public static IQueryable<AuctionListing> GetListingsByAccount(this ShardDatabase database, AuctionDbContext context, uint accountId, AuctionListingStatus status)
     {
-        var query = context.AuctionListing
-            .AsNoTracking()
-            .Where(listing => listing.Status == status && listing.SellerId == accountId);
-
-        return query;
+        return database.GetListingsByPredicate(context, listing => listing.Status == AuctionListingStatus.active && listing.SellerId == accountId);
     }
 
     public static IQueryable<AuctionListing> GetListingsByAccount(this ShardDatabase database, uint accountId, AuctionListingStatus status)
@@ -245,6 +249,30 @@ public static class AuctionDatabaseExtensions
         using (var context = new AuctionDbContext())
         {
             var query = database.GetListingsByAccount(context, accountId, AuctionListingStatus.active);
+
+            var filteredQuery = database.ApplyListingsSearchFilter(query, search);
+            var sortedQuery = database.ApplyListingsSortFilter(filteredQuery, sortColumn, sortDirection);
+
+            var pageIndex = Math.Max(0, (int)pageNumber - 1);
+            var skipAmount = pageIndex * (int)pageSize;
+
+            return sortedQuery
+                .Skip(skipAmount)
+                .Take((int)pageSize)
+                .ToList();
+        }
+    }
+    public static List<AuctionListing> GetBrowseAuctionListings(
+    this ShardDatabase database,
+    uint sortColumn,
+    uint sortDirection,
+    string search,
+    uint pageNumber,
+    uint pageSize)
+    {
+        using (var context = new AuctionDbContext())
+        {
+            var query = database.GetListingsByPredicate(context, listings => listings.Status == AuctionListingStatus.active);
 
             var filteredQuery = database.ApplyListingsSearchFilter(query, search);
             var sortedQuery = database.ApplyListingsSortFilter(filteredQuery, sortColumn, sortDirection);
