@@ -42,28 +42,32 @@
 
       .inbox-container {
         padding: 1rem;
+        position: relative;
         width: 100%;
         height: 100%;
-        gap: 1rem;
-        flex-direction: column;
-      }
-
-      .inbox-items-pagination {
-        flex-shrink: 0;
-        margin-top: auto;
       }
 
       .inbox-items {
-        flex-shrink: 1;
         overflow: auto;
+        position: absolute;
+        overflow: auto;
+        padding: 1rem;
+        left: 0;
+        right: 0;
+        bottom: 5rem;
+        top: 5rem;
       }
 
       .inbox-list-item {
         margin-bottom: 0.5rem;
-        gap: 1rem;
         border-radius: 0.85rem;
         padding: 1rem 0.5rem;
         background: rgba(59, 49, 27, 50%);
+      }
+
+      .inbox-list-item > * {
+        display: inline-block;
+        margin-right: 1rem;
       }
 
       .inbox-list-item:hover {
@@ -74,7 +78,16 @@
         color: #eea300dd;
       }
 
-      .inbox-items-collect-all {
+      .inbox-items-collect-container {
+        width: 100%;
+        position: absolute;
+        padding: 0 1rem;
+        left: 0;
+        right: 0;
+        bottom: 1rem;
+      }
+
+      .inbox-items-collect {
         width: 100%;
       }
       
@@ -149,7 +162,7 @@
         gap: 0.5rem;
       }
 
-      .post-auction-listings-pagination {
+      .post-auction-listings-pagination, .inbox-items-pagination {
         flex: 1;
         display: flex;
         align-items: center;
@@ -159,10 +172,6 @@
 
       .post-auction-listings-pagination button {
         width: 30%;
-      }
-
-      .post-auction-listings-pagination > * {
-        
       }
 
       .post-auction-listings-list {
@@ -177,15 +186,7 @@
         padding: 0 1rem;
       }
 
-      .inbox-items-pagination {
-        margin-top: auto;
-        justify-content: flex-end;
-        padding: 1rem 0;
-        padding-bottom: 0;
-        gap: 0.5rem;
-      }
-
-      .post-auction-listings-pagination input[type="text"] {
+      .post-auction-listings-pagination input[type="text"], .inbox-items-pagination input[type="text"] {
         width: 10%;
       }
       

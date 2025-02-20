@@ -117,10 +117,14 @@ public static class AuctionManager
 
                 var wo = WorldObjectFactory.CreateWorldObject(biota);
 
+                Debugger.Break();
+                if (!player.CanAddToContainer(wo))
+                    throw new AuctionFailure($"Failed to add mail item with Id = {item.Id} to {player.Name}'s inventory, the player does not have enough space", FailureCode.Auction.CollectInboxItemsRequest);
+
                 if (player.TryCreateInInventoryWithNetworking(wo))
                     DatabaseManager.Shard.BaseDatabase.RemoveMailItem(item.Id);
                 else
-                    throw new AuctionFailure($"Failed to add mail item with Id = {item.Id} to {player.Name}'s inventory", FailureCode.Auction.Unknown);
+                    throw new AuctionFailure($"Failed to add mail item with Id = {item.Id} to {player.Name}'s inventory", FailureCode.Auction.CollectInboxItemsRequest);
             }
         }
     }
