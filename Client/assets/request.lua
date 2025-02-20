@@ -43,8 +43,6 @@ request.read = function(rawData)
 end
 
 request.fetchPostListings = function(searchQuery, sortDirection, sortColumn, pageNumber, pageSize)
-  print(sortColumn)
-  print(utils.getEnumRepresentation(postConstants.listingColumnEnumMap, sortColumn))
   local fetchPostListingsRequest = {
     SearchQuery = searchQuery,
     SortBy = utils.getEnumRepresentation(postConstants.listingColumnEnumMap, sortColumn),
@@ -58,6 +56,7 @@ request.fetchPostListings = function(searchQuery, sortDirection, sortColumn, pag
 end
 
 request.fetchInboxItems = function(pageSize, pageNumber)
+  print("Fetching Inbox Items")
   write(0x10005, {
     Data = {
       PageSize = pageSize,

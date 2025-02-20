@@ -14,7 +14,7 @@ public enum AuctionGameMessageOpcode : uint
     GetInboxItemsResponse = 0x10006,
     InboxNotificationResponse = 0x10007,
     CollectInboxItemsRequest = 0x10008,
-    CollectInboxItemsResponse = 0x10008,
+    CollectInboxItemsResponse = 0x10009,
 }
 public class GameMessageCollectInboxItemResponse : GameMessage
 {

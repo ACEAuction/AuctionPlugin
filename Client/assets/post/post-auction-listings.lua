@@ -104,30 +104,24 @@ local onInboxNotificationResponse = function()
   state.HandleInboxNotificationReponse()
 end
 
+local onSearchChange = utils.debounce(function(evt)
+  state.HandleListingsSearch(evt.Params.value)
+end, 1000)
+
+local onPageNumberInputChange = utils.debounce(function(evt)
+  state.HandlePageNumberInput(tonumber(evt.Params.value))
+end, 1000)
+
 local OpCodeHandlers = {
   [0x10004] = onGetPostListingsResponse,
   [0x10007] = onInboxNotificationResponse
 }
-
-local onSearchChange = utils.debounce(function(evt)
-  state.HandleListingsSearch(evt.Params.value)
-end, 1000)
 
 local unknownMessageHandler = function(sender, evt)
   if OpCodeHandlers[evt.OpCode] then
     OpCodeHandlers[evt.OpCode](evt)
   end
 end
-
-local onMount = function()
-  Net.Messages:OnUnknownMessage('+', function(sender, evt)
-    if OpCodeHandlers[evt.OpCode] then
-      OpCodeHandlers[evt.OpCode](evt)
-    end
-  end)
-  request.fetchPostListings("", 1, "name", state.pageNumber, state.pageSize)
-end
-
 
 local AuctionListingsTitle = function(state)
   return rx:Div({ class = "post-auction-listings-title" }, {
@@ -294,7 +288,7 @@ local AuctionListingsPagination = function(state)
     rx:Input({
       type = "text",
       value = state.pageNumber,
-      onChange = function(evt) state.HandlePageNumberInput(tonumber(evt.Params.value)) end
+      onChange = onPageNumberInputChange
     }),
     rx:Button({
       disabled = state.pageNumber <= 1,
@@ -330,6 +324,15 @@ local AuctionListingsControls = function(state)
     AuctionListingsSearch(state),
     AuctionListingsPagination(state)
   })
+end
+
+local onMount = function()
+  Net.Messages:OnUnknownMessage('+', unknownMessageHandler)
+  request.fetchPostListings("", 1, "name", state.pageNumber, state.pageSize)
+end
+
+local onUnmount = function()
+  Net.Messages:OnUnknownMessage('-', unknownMessageHandler)
 end
 
 local AuctionListings = function(state)

@@ -1,13 +1,13 @@
 local rx = require('rx')
 local request = require('request')
 local Net = require(typeof(CS.Chorizite.Core.Net.NetworkParser))
-local ac = require('Plugins.Core.AC').Game
+local ac = require('Plugins.AC').Game
 local utils = require('utils')
 
 local state = rx:CreateState({
   collectingInboxItems = false,
   items = nil,
-  pageSize = 5,
+  pageSize = 20,
   pageNumber = 1,
   hasNextPage = true,
   HandleGetInboxItemsResponse = function(self, response)
@@ -42,26 +42,26 @@ local state = rx:CreateState({
         ids[i] = item.Id
       end
       request.collectInboxItems(ids)
-      if self.pageNumber > 1 then
-        self.pageNumber = self.pageNumber - 1
-      end
     end
   end
 })
+
 
 local onInboxNotification = utils.debounce(function()
   print("[InboxItems] -> InboxNotificationResponse Event Handler")
   request.fetchInboxItems(state.pageSize, state.pageNumber);
 end, 3000)
 
+local onGetInboxItemsResponse = function(evt)
+  print("[InboxItems] -> GetInboxItemsResponse Event Handler")
+  local getInboxItemsResponse = request.read(evt.RawData)
+  state.HandleGetInboxItemsResponse(getInboxItemsResponse)
+end
+
 local OpCodeHandlers = {
-  [0x10006] = function(evt)
-    print("[InboxItems] -> GetInboxItemsResponse Event Handler")
-    local getInboxItemsResponse = request.read(evt.RawData)
-    state.HandleGetInboxItemsResponse(getInboxItemsResponse)
-  end,
+  [0x10006] = onGetInboxItemsResponse,
   [0x10007] = onInboxNotification,
-  [0x10008] = function(evt)
+  [0x10009] = function(evt)
     print("[InboxItems] -> CollectInboxItemsResponse Event Handler")
     request.fetchInboxItems(state.pageSize, state.pageNumber);
   end
@@ -151,12 +151,16 @@ local InboxItemsPagination = function(state)
 end
 
 local InboxItemsCollect = function(state)
-  return rx:Button({
-    class = "primary inbox-items-collect-all",
-    onClick = function()
-      state.CollectInboxItems()
-    end
-  }, "Collect All")
+  return rx:Div({
+    class = "inbox-items-collect-container"
+  }, {
+    rx:Button({
+      class = "primary inbox-items-collect",
+      onClick = function()
+        state.CollectInboxItems()
+      end
+    }, "Collect")
+  })
 end
 
 local InboxView = function(state)
@@ -165,8 +169,8 @@ local InboxView = function(state)
     class = "inbox-container",
     onMount = onMount
   }, {
-    InboxItems(state),
     InboxItemsPagination(state),
+    InboxItems(state),
     InboxItemsCollect(state),
   })
 end

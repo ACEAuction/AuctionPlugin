@@ -19,9 +19,11 @@ public static class NetworkingExtensions
 
         stopwatch.Stop();  
 
+        string? name = Enum.GetName(typeof(AuctionGameMessageOpcode), message.Opcode);
+        ModManager.Log($"Writing GameMessage = {name}, OpCode = {message.Opcode}");
+
         if (jsonBytes.Length < 1000)
         {
-            ModManager.Log("Logging WriteJson() string payload");
             ModManager.Log(jsonString);
         }
         else
@@ -40,7 +42,9 @@ public static class NetworkingExtensions
 
             var jsonString = message.Payload.ReadString();
 
-            ModManager.Log($"Logging ReadJson() string payload");
+            string? name = Enum.GetName(typeof(AuctionGameMessageOpcode), message.Opcode);
+
+            ModManager.Log($"Reading ClientMessage = {name}, OpCode = {message.Opcode}");
             ModManager.Log(jsonString);
 
             return JsonSerializer.Deserialize<JsonRequest<T>>(jsonString);
